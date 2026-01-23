@@ -31,7 +31,7 @@ def combination
   .pure (m + n')
 
 def runCombination1 : String × Nat × Nat :=
-  combination (es := [State Nat, State String, Reader Nat])
+  combination
   |> State.run 0
   |> State.run "x"
   |> Reader.run 4
