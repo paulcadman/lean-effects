@@ -1,0 +1,11 @@
+name = "lean-effects"
+version = "0.1.0"
+defaultTargets = ["LeanEffects"]
+testDriver = "LeanEffectsExamples"
+
+[[lean_lib]]
+name = "LeanEffects"
+
+[[lean_lib]]
+name = "LeanEffectsExamples"
+globs = ["LeanEffectsExamples.+"]
