@@ -33,4 +33,10 @@ def run (s: S) (p : Program (State S :: es) α) : Program es (S × α) :=
   }
   interpret handler p s
 
+def exec (s : S) (p : Program (State S :: es) α) : Program es S :=
+  run s p |>.map (fun x => x.fst)
+
+def eval (s : S) (p : Program (State S :: es) α) : Program es α :=
+  run s p |>.map (fun x => x.snd)
+
 end State

@@ -98,4 +98,14 @@ def interpret {e : Effect} {es : List Effect} {α : Type u} {m : Type u → Type
     | HSum.there opEs => handleOther (γ:=γ) opEs k
   foldP ret op
 
+def reinterpret {e f : Effect} {es : List Effect} {α : Type u}
+  (handler : {γ : Type u} → e γ → (γ → Program (f :: es) α) → Program (f :: es) α)
+  : Program (e :: es) α → Program (f :: es) α :=
+  foldP
+    (ret := fun a => Program.pure a)
+    (op := fun {γ} h k =>
+      match h with
+      | HSum.here opE => handler (γ:=γ) opE k
+      | HSum.there opR => Program.op (HSum.there opR) (fun x => k x))
+
 end Program
