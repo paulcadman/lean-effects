@@ -44,7 +44,7 @@ universe u v
 
 -- Programs over a list of `EffectOp`s
 -- A value is either pure or an effect followed by a continuation.
-inductive Program (es : List Effect) (α : Type u) : Type (u+1) where
+inductive Program (es : List Effect.{u, v}) (α : Type u) : Type ((max v u) + 1) where
   | ret : α → Program es α
   | op : {β : Type u} → HSum es β → (β → Program es α) → Program es α
 
