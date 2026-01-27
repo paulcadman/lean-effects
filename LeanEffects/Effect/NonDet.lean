@@ -36,7 +36,7 @@ def runViaAlternative
     handleEffect := fun opE k =>
       match opE with
       | NonDet.failOp => Alternative.failure
-      | NonDet.chooseOp => Alternative.orElse (k .left) (fun _ => k .right:),
+      | NonDet.chooseOp => Alternative.orElse (k .left) (fun _ => k .right),
     liftOther := liftOther
   }
   interpret handler p
@@ -44,53 +44,53 @@ def runViaAlternative
 abbrev ListM (es : List Effect) (α : Type u) := Program es (List α)
 
 instance (es : List Effect) : Monad (ListM es) where
-  pure a := Program.pure [a]
+  pure a := ret [a]
   bind {α β} m f := do
     Program.bind m (fun xs =>
         let rec go : List α → Program es (List β)
-            | [] => Program.pure []
+            | [] => ret []
             | x :: xs' => do
               let ys ← f x
               let zs ← go xs'
-              Program.pure (ys ++ zs)
+              ret (ys ++ zs)
         go xs)
 
 instance (es : List Effect) : Alternative (ListM es) where
-  failure := Program.pure []
+  failure := ret []
   orElse {α} := fun xs ys =>
     let p : Program es (List α) := do
       let xs' ← xs
       let ys' ← ys ()
-      Program.pure (xs' ++ ys')
+      ret (xs' ++ ys')
     p
 
 def runViaList (p : Program (NonDet :: es) α) : Program es (List α) :=
   let liftOther {γ} : HSum es γ → ListM es γ :=
-    fun e => Program.op e (fun x => Program.pure [x])
+    fun e => Program.op e (fun x => ret [x])
   runViaAlternative (m:=ListM es) liftOther p
 
 abbrev OptionM (es : List Effect) (α : Type u) := Program es (Option α)
 
 instance (es : List Effect) : Monad (OptionM es) where
-  pure a := Program.pure (some a)
+  pure a := ret (some a)
   bind m f := Program.bind m (
     fun
-    | none => Program.pure none
+    | none => ret none
     | some x => f x
   )
 
 instance (es : List Effect) : Alternative (OptionM es) where
-  failure := Program.pure none
+  failure := ret none
   orElse := fun mx my =>
     Program.bind mx (
       fun
       | none => my ()
-      | some x => Program.pure (some x)
+      | some x => ret (some x)
     )
 
 def runViaOption (p : Program (NonDet :: es) α) : Program es (Option α) :=
   let liftOther {γ} : HSum es γ -> OptionM es γ :=
-    fun e => Program.op e (fun x => Program.pure (some x))
+    fun e => Program.op e (fun x => ret (some x))
   runViaAlternative (m:=OptionM es) liftOther p
 
 end NonDet

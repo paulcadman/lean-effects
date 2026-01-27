@@ -18,7 +18,7 @@ abbrev StateM (S : Type) (es : List Effect) (α : Type) :=
   S → Program es (S × α)
 
 instance (S : Type) (es : List Effect) : Monad (StateM S es) where
-  pure a := fun s => .pure (s, a)
+  pure a := fun s => ret (s, a)
   bind m f := fun s => do
     let (s', a) ← m s
     f a s'
@@ -29,7 +29,7 @@ def run (s: S) (p : Program (State S :: es) α) : Program es (S × α) :=
       match op with
       | .getOp => fun st => k st st
       | .putOp s' => fun _ => k .unit s',
-    liftOther := fun e st => Program.op e (fun x => Program.pure (st, x))
+    liftOther := fun e st => Program.op e (fun x => ret (st, x))
   }
   interpret handler p s
 
