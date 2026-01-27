@@ -28,7 +28,7 @@ def combination
   put (n + s.length)
   let m ← ask
   let n' ← get
-  .pure (m + n')
+  pure (m + n')
 
 def runCombination1 : String × Nat × Nat :=
   combination

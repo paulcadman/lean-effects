@@ -11,9 +11,18 @@ inductive HSum : List Effect.{u, v} → Type u → Type ((max v u) + 1) where
 -- A typeclass to express that `e` is in the list `es`
 class Member (e : Effect.{u, v}) (es : List Effect.{u, v}) : Type ((max v u) + 1) where
   inj : {α : Type u} → e α → HSum es α
+  prj : {α : Type u} → HSum es α → Option (e α)
 
 instance (e : Effect) (es : List Effect) : Member e (e :: es) where
   inj := fun x => HSum.here x
+  prj := fun h =>
+    match h with
+    | .here op => some op
+    | .there _ => none
 
 instance (e e' : Effect) (es : List Effect) [Member e es] : Member e (e' :: es) where
   inj := fun x => HSum.there (Member.inj x)
+  prj := fun h =>
+    match h with
+    | .here _ => none
+    | .there h' => Member.prj h'
