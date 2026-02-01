@@ -75,12 +75,14 @@ def run : Program [] α → α
 -- The op handler receives the current op and a continuation in m.
 def foldP
   [Monad m]
+  (ret : α → m α)
   (op : {γ : Type u} → HSum es γ → (γ → m α) → m α)
   : Program es α → m α
-  | ret a => pure a
-  | .op e k => op e (fun x => foldP op (k x))
+  | .ret a => ret a
+  | .op e k => op e (fun x => foldP ret op (k x))
 
 structure Handler (e : Effect) (es : List Effect) (m : Type u → Type v) [Monad m] where
+  ret {α : Type u} : α → m α := Pure.pure
   handleEffect {α γ : Type u} : e γ → (γ → m α) → m α
   liftOther {γ : Type u} : HSum es γ → m γ
 
@@ -93,12 +95,13 @@ def interpret {e : Effect} {es : List Effect} {α : Type u} {m : Type u → Type
     match h with
     | HSum.here opE => handler.handleEffect (γ:=γ) opE k
     | HSum.there opEs => handleOther (γ:=γ) opEs k
-  foldP op
+  foldP handler.ret op
 
 def reinterpret {e f : Effect} {es : List Effect} {α : Type u}
   (handler : {γ : Type u} → e γ → (γ → Program (f :: es) α) → Program (f :: es) α)
   : Program (e :: es) α → Program (f :: es) α :=
   foldP
+    (ret := Pure.pure)
     (op := fun {γ} h k =>
       match h with
       | HSum.here opE => handler (γ:=γ) opE k
