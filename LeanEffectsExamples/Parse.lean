@@ -66,6 +66,48 @@ partial def many1
 
 end
 
+mutual
+
+open Symbol
+
+partial def expr
+  [Member NonDet es]
+  [Member Symbol es]
+  : Program es Nat :=
+  let plus := do
+    let i ← term
+    let _ ← char '+'
+    let j ← term
+    pure (i + j)
+  NonDet.choose2 plus term
+
+partial def term
+  [Member NonDet es]
+  [Member Symbol es]
+  : Program es Nat :=
+  let times := do
+    let i ← factor
+    let _ ← char '*'
+    let j ← term
+    pure (i * j)
+  NonDet.choose2 times factor
+
+partial def factor
+  [Member NonDet es]
+  [Member Symbol es]
+  : Program es Nat :=
+  let num := do
+    let ds ← many1 digit
+    pure (String.ofList ds |> String.toNat!)
+  let bracketed := do
+    let _ ← char '('
+    let i ← expr
+    let _ ← char ')'
+    pure i
+  NonDet.choose2 num bracketed
+
+end
+
 def ex1 :=
   Symbol.parse "" (many digit)
   |> NonDet.runViaOption
@@ -100,3 +142,10 @@ def ex5 :=
   |> Program.run
 
 #guard (ex5 |>.map String.ofList) == none
+
+def ex6 :=
+  Symbol.parse "(2+8)*5" expr
+  |> NonDet.runViaOption
+  |> Program.run
+
+#guard ex6 == some 50
