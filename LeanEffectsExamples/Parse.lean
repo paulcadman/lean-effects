@@ -101,9 +101,23 @@ partial def expr2
       let _ ← char '+'
       -- cut commits to this branch, i.e it prevents backtracking to i after + is consumed
       Cut.cut
-      let j ← expr1
+      let j ← expr2
       pure (i + j)
     Cut.call <| NonDet.choose2 plus (pure i)
+
+partial def expr3
+  [Member NonDet es]
+  [Member Symbol es]
+  [Member Call es]
+  [Member Cut es]
+  : Program es Nat := do
+    let i ← term
+    let plus := do
+      let _ ← char '+'
+      Cut.cut
+      let j ← expr3
+      pure (i + j)
+    Call.call' <| NonDet.choose2 plus (pure i)
 
 partial def term
   [Member NonDet es]
@@ -189,3 +203,11 @@ def ex7 :=
 -- expected to be `some 1` but fails because of
 -- the ordering of the parse and call handlers
 -- #guard ex7 == some 1
+
+def ex8 :=
+  Symbol.parse "1" expr3
+  |> Cut.runCut
+  |> NonDet.runViaOption
+  |> Program.run
+
+#guard ex8 == some 1

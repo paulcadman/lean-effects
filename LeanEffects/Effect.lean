@@ -20,6 +20,13 @@ instance (e : Effect) (es : List Effect) : Member e (e :: es) where
     | .here op => some op
     | .there _ => none
 
+-- instance (e1 e2 : Effect) (es : List Effect) : Member e2 (e1 :: e2 :: es) where
+--   inj := fun x => HSum.here x |> HSum.there
+--   prj := fun h =>
+--     match h with
+--     | .there (.here op) => some op
+--     | _ => none
+
 instance (e e' : Effect) (es : List Effect) [Member e es] : Member e (e' :: es) where
   inj := fun x => HSum.there (Member.inj x)
   prj := fun h =>

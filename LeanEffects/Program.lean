@@ -40,11 +40,11 @@ Lean Program:
         Program.pure PUnit.unit))
 -/
 
-universe u v
+universe u v w
 
 -- Programs over a list of `EffectOp`s
 -- A value is either pure or an effect followed by a continuation.
-inductive Program (es : List Effect.{u, v}) (α : Type u) : Type ((max v u) + 1) where
+inductive Program (es : List Effect.{u, v}) (α : Type w) : Type ((max (max v u) w) + 1) where
   | ret : α → Program es α
   | op : {β : Type u} → HSum es β → (β → Program es α) → Program es α
 
@@ -62,6 +62,9 @@ instance : Monad (Program es) where
   map := map
   pure := ret
   bind := bind
+
+instance [Inhabited α] : Inhabited (Program es α) :=
+  ⟨ret default⟩
 
 -- Inject a single operation from effect e into a program.
 def perform {e : Effect} [Member e es] (x : e α) : Program es α :=
@@ -106,5 +109,9 @@ def reinterpret {e f : Effect} {es : List Effect} {α : Type u}
       match h with
       | HSum.here opE => handler (γ:=γ) opE k
       | HSum.there opR => Program.op (HSum.there opR) (fun x => k x))
+
+def upcast {e : Effect} {es : List Effect} : Program es α → Program (e :: es) α
+  | .ret a => .ret a
+  | .op x f => .op (.there x) (fun a => upcast (f a))
 
 end Program

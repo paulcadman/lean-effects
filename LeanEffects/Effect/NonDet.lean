@@ -1,4 +1,5 @@
 import LeanEffects.Program
+
 inductive Choice : Type u
   | left
   | right
@@ -14,17 +15,16 @@ namespace NonDet
 open Program
 
 def empty [Member NonDet es] : Program es α := do
-  let x ← .perform NonDet.failOp
-  nomatch x
+  Program.op (Member.inj NonDet.failOp) (fun x => nomatch x)
 
 def fail [Member NonDet es] : Program es α :=
   empty
 
 def choose2 [Member NonDet es] (p q : Program es α) : Program es α := do
-  let b ← .perform NonDet.chooseOp
-  match b with
-  | .left => p
-  | .right => q
+  Program.op (Member.inj NonDet.chooseOp) (fun b =>
+    match b with
+    | .left => p
+    | .right => q)
 
 def runViaAlternative
   {m : Type u → Type v}

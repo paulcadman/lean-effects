@@ -1,10 +1,34 @@
 import LeanEffects.Program
 import LeanEffects.Effect.NonDet
 
+universe u
+
 -- The cutfail operation immediately ends the search with failure,
 -- dropping all extant unexplored branches
 inductive Cut : Type → Type where
   | cutfailOp : Cut α
+
+inductive Call : Type → Type where
+  | callBeginOp : Call PUnit
+  | callEndOp : Call PUnit
+
+namespace Call
+
+def begin_ [Member Call es] : Program es PUnit :=
+  .perform Call.callBeginOp
+
+def end_ [Member Call es] : Program es PUnit :=
+  .perform Call.callEndOp
+
+def call'
+  [Member Call es]
+  (p : Program es α) : Program es α := do
+    begin_
+    let x ← p
+    end_
+    pure x
+
+end Call
 
 namespace Cut
 
@@ -29,6 +53,44 @@ def call
                 Program.op h' (fun x => go (k x) q)
   go p NonDet.fail
 
+
+partial def ecall
+  [Inhabited α]
+  [Member NonDet es]
+  : Program (Call :: Cut :: es) α → Program (Cut :: es) (Program (Call :: Cut :: es) α)
+  | .ret a => Program.ret (.ret a)
+  | .op h k =>
+    match h with
+    | HSum.here Call.callBeginOp =>
+        let p' := k PUnit.unit
+        Program.bind
+          (Program.upcast (e:=Cut) (call (ecall p')))
+          (fun q => ecall q)
+    | HSum.here Call.callEndOp => Program.ret (k PUnit.unit)
+    | HSum.there h' => Program.op h' (fun x => ecall (k x))
+
+
+partial def bcall
+  [Inhabited α]
+  [Member NonDet es]
+  : Program (Call :: Cut :: es) α → Program (Cut :: es) α
+  | .ret a => Program.ret a
+  | .op h k =>
+    match h with
+    | HSum.here Call.callBeginOp =>
+        let p' := k PUnit.unit
+        Program.bind
+            (Program.upcast (e:=Cut) (call (ecall p')))
+            (fun q => bcall q)
+    | HSum.here Call.callEndOp => panic! "Mismatched ECall"
+    | HSum.there h' => Program.op h' (fun x => bcall (k x))
+
+def runCut
+  [Inhabited α]
+  [Member NonDet es]
+  (p : Program (Call :: Cut :: es) α) : Program es α :=
+   bcall p |> call
+
 mutual
 
 def cut
@@ -41,6 +103,7 @@ def skip
   [Monad m]
   : m PUnit :=
     pure PUnit.unit
+
 end
 
 -- Once commits to the first solution that's found in `p`
