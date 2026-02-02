@@ -81,6 +81,30 @@ partial def expr
     pure (i + j)
   NonDet.choose2 plus term
 
+partial def expr1
+  [Member NonDet es]
+  [Member Symbol es]
+  : Program es Nat := do
+    let i ← term
+    let plus := do
+      let _ ← char '+'
+      let j ← expr1
+      pure (i + j)
+    NonDet.choose2 plus (pure i)
+
+partial def expr2
+  [Member NonDet es]
+  [Member Symbol es]
+  : Program es Nat := do
+    let i ← term
+    let plus := do
+      let _ ← char '+'
+      -- cut commits to this branch, i.e it prevents backtracking to i after + is consumed
+      Cut.cut
+      let j ← expr1
+      pure (i + j)
+    Cut.call <| NonDet.choose2 plus (pure i)
+
 partial def term
   [Member NonDet es]
   [Member Symbol es]
@@ -149,3 +173,19 @@ def ex6 :=
   |> Program.run
 
 #guard ex6 == some 50
+
+def ex6_1 :=
+  Symbol.parse "(2+8)*5" expr1
+  |> NonDet.runViaOption
+  |> Program.run
+
+#guard ex6_1 == some 50
+
+def ex7 :=
+  Symbol.parse "1" expr2
+  |> NonDet.runViaOption
+  |> Program.run
+
+-- expected to be `some 1` but fails because of
+-- the ordering of the parse and call handlers
+-- #guard ex7 == some 1
