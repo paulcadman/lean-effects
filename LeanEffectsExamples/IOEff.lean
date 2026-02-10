@@ -2,6 +2,8 @@ import LeanEffects
 
 namespace IOEffExample
 
+variable {es : List Effect}
+
 open Program
 open IOEff
 open Reader

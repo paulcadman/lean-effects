@@ -1,5 +1,7 @@
 import LeanEffects.Program
 
+variable {es : List Effect}
+
 inductive IOEff (α : Type) : Type where
   | embedOp : IO α → IOEff α
 
@@ -7,10 +9,10 @@ namespace IOEff
 
 open Program
 
-def embed [Member IOEff es] (action : IO α) : Program es α :=
+def embed {α : Type} [Member IOEff es] (action : IO α) : Program es α :=
  .perform (IOEff.embedOp action)
 
-def run (p : Program [IOEff] α) : IO α :=
+def run {α : Type} (p : Program [IOEff] α) : IO α :=
   let handler : Handler IOEff [] IO := {
     handleEffect := fun op k =>
       match op with

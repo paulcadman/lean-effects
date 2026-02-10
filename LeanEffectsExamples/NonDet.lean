@@ -4,6 +4,8 @@ namespace NonDetExample
 
 open Program
 
+variable {es : List Effect}
+
 def p [Member NonDet es] : Program es Nat := do
   let x ← NonDet.choose2 (ret 1) (ret 2)
   let y ← NonDet.choose2 (ret 10) (ret 20)

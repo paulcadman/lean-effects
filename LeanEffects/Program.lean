@@ -41,6 +41,7 @@ Lean Program:
 -/
 
 universe u v w
+variable {es : List Effect}
 
 -- Programs over a list of `EffectOp`s
 -- A value is either pure or an effect followed by a continuation.
@@ -50,11 +51,11 @@ inductive Program (es : List Effect.{u, v}) (α : Type w) : Type ((max v u w) + 
 
 namespace Program
 
-def map (f : α → β) : Program es α → Program es β
+def map {α : Type u} {β : Type v} (f : α → β) : Program es α → Program es β
   | ret a => ret (f a)
   | .op e k => .op e (fun x => map f (k x))
 
-def bind : Program es α → (α → Program es β) → Program es β
+def bind {α : Type u} {β : Type v} : Program es α → (α → Program es β) → Program es β
   | ret a, f => f a
   | .op e k, f => .op e (fun x => bind (k x) f)
 
@@ -63,20 +64,22 @@ instance : Monad (Program es) where
   pure := ret
   bind := bind
 
-instance [Inhabited α] : Inhabited (Program es α) :=
+instance {α : Type u} [Inhabited α] : Inhabited (Program es α) :=
   ⟨ret default⟩
 
 -- Inject a single operation from effect e into a program.
-def perform {e : Effect} [Member e es] (x : e α) : Program es α :=
+def perform {α : Type u} {e : Effect} [Member e es] (x : e α) : Program es α :=
   .op (Member.inj x) ret
 
 -- Extract the value from a program with no effects
-def run : Program [] α → α
+def run {α : Type u} : Program [] α → α
   | ret a => a
 
 -- foldP folds a Program into any monad m by providing handlers for pure and op.
 -- The op handler receives the current op and a continuation in m.
 def foldP
+  {α : Type u}
+  {m : Type u → Type v}
   [Monad m]
   (ret : α → m α)
   (op : {γ : Type u} → HSum es γ → (γ → m α) → m α)
@@ -110,7 +113,7 @@ def reinterpret {e f : Effect} {es : List Effect} {α : Type u}
       | HSum.here opE => handler (γ:=γ) opE k
       | HSum.there opR => Program.op (HSum.there opR) (fun x => k x))
 
-def upcast {e : Effect} {es : List Effect} : Program es α → Program (e :: es) α
+def upcast {α : Type u} {e : Effect} {es : List Effect} : Program es α → Program (e :: es) α
   | .ret a => .ret a
   | .op x f => .op (.there x) (fun a => upcast (f a))
 

@@ -2,11 +2,12 @@ import LeanEffects.Program
 import LeanEffects.Effect.NonDet
 
 universe u
+variable {es : List Effect}
 
 -- The cutfail operation immediately ends the search with failure,
 -- dropping all extant unexplored branches
 inductive Cut : Type → Type where
-  | cutfailOp : Cut α
+  | cutfailOp {α : Type} : Cut α
 
 inductive Call : Type → Type where
   | callBeginOp : Call PUnit
@@ -21,6 +22,7 @@ def end_ [Member Call es] : Program es PUnit :=
   .perform Call.callEndOp
 
 def call'
+  {α : Type}
   [Member Call es]
   (p : Program es α) : Program es α := do
     begin_
@@ -32,10 +34,11 @@ end Call
 
 namespace Cut
 
-def cutfail [Member Cut es] : Program es α :=
+def cutfail {α : Type} [Member Cut es] : Program es α :=
   .perform Cut.cutfailOp
 
 def call
+  {α : Type u}
   [Member NonDet es]
   (p : Program (Cut :: es) α)
   : Program es α :=
@@ -53,8 +56,8 @@ def call
                 Program.op h' (fun x => go (k x) q)
   go p NonDet.fail
 
-
 partial def ecall
+  {α : Type u}
   [Inhabited α]
   [Member NonDet es]
   : Program (Call :: Cut :: es) α → Program (Cut :: es) (Program (Call :: Cut :: es) α)
@@ -69,8 +72,8 @@ partial def ecall
     | HSum.here Call.callEndOp => Program.ret (k PUnit.unit)
     | HSum.there h' => Program.op h' (fun x => ecall (k x))
 
-
 partial def bcall
+  {α : Type u}
   [Inhabited α]
   [Member NonDet es]
   : Program (Call :: Cut :: es) α → Program (Cut :: es) α
@@ -86,6 +89,7 @@ partial def bcall
     | HSum.there h' => Program.op h' (fun x => bcall (k x))
 
 def runCut
+  {α : Type u}
   [Inhabited α]
   [Member NonDet es]
   (p : Program (Call :: Cut :: es) α) : Program es α :=
@@ -100,6 +104,7 @@ def cut
     NonDet.choose2 skip cutfail
 
 def skip
+  {m : Type → Type 1}
   [Monad m]
   : m PUnit :=
     pure PUnit.unit
@@ -108,6 +113,7 @@ end
 
 -- Once commits to the first solution that's found in `p`
 def once
+  {α : Type}
   [Member NonDet es]
   (p : Program (Cut :: es) α)
   : Program es α :=
