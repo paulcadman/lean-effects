@@ -9,3 +9,6 @@ name = "LeanEffects"
 [[lean_lib]]
 name = "LeanEffectsExamples"
 globs = ["LeanEffectsExamples.+"]
+
+[[lean_lib]]
+name = "LeanEffectsContainer"
