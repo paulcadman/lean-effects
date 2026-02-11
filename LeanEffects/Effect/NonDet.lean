@@ -1,5 +1,10 @@
 import LeanEffects.Program
 
+set_option autoImplicit false
+
+variable {es : List Effect}
+universe u v
+
 inductive Choice : Type u
   | left
   | right
@@ -14,19 +19,20 @@ namespace NonDet
 
 open Program
 
-def empty [Member NonDet es] : Program es α := do
+def empty {α : Type u} [Member NonDet es] : Program es α := do
   Program.op (Member.inj NonDet.failOp) (fun x => nomatch x)
 
-def fail [Member NonDet es] : Program es α :=
+def fail {α : Type u} [Member NonDet es] : Program es α :=
   empty
 
-def choose2 [Member NonDet es] (p q : Program es α) : Program es α := do
+def choose2 {α : Type u} [Member NonDet es] (p q : Program es α) : Program es α := do
   Program.op (Member.inj NonDet.chooseOp) (fun b =>
     match b with
     | .left => p
     | .right => q)
 
 def runViaAlternative
+  {α : Type u}
   {m : Type u → Type v}
   [Monad m]
   [Alternative m]
@@ -64,7 +70,7 @@ instance (es : List Effect) : Alternative (ListM es) where
       ret (xs' ++ ys')
     p
 
-def runViaList (p : Program (NonDet :: es) α) : Program es (List α) :=
+def runViaList {α : Type u} (p : Program (NonDet :: es) α) : Program es (List α) :=
   let liftOther {γ} : HSum es γ → ListM es γ :=
     fun e => Program.op e (fun x => ret [x])
   runViaAlternative (m:=ListM es) liftOther p
@@ -88,7 +94,7 @@ instance (es : List Effect) : Alternative (OptionM es) where
       | some x => ret (some x)
     )
 
-def runViaOption (p : Program (NonDet :: es) α) : Program es (Option α) :=
+def runViaOption {α : Type u} (p : Program (NonDet :: es) α) : Program es (Option α) :=
   let liftOther {γ} : HSum es γ -> OptionM es γ :=
     fun e => Program.op e (fun x => ret (some x))
   runViaAlternative (m:=OptionM es) liftOther p

@@ -1,5 +1,8 @@
 import LeanEffects.Program
 
+set_option autoImplicit false
+variable {es : List Effect}
+
 inductive State (S : Type) : Type → Type where
   | getOp : State S S
   | putOp : S → State S PUnit
@@ -11,7 +14,7 @@ open Program
 def get {S : Type} [Member (State S) es] : Program es S :=
   .perform State.getOp
 
-def put {S: Type} [Member (State S) es] (s : S) : Program es PUnit :=
+def put {S : Type} [Member (State S) es] (s : S) : Program es PUnit :=
   .perform (State.putOp s)
 
 abbrev StateM (S : Type) (es : List Effect) (α : Type) :=
@@ -23,7 +26,7 @@ instance (S : Type) (es : List Effect) : Monad (StateM S es) where
     let (s', a) ← m s
     f a s'
 
-def run (s: S) (p : Program (State S :: es) α) : Program es (S × α) :=
+def run {S α : Type} (s : S) (p : Program (State S :: es) α) : Program es (S × α) :=
   let handler : Handler (State S) es (StateM S es) := {
     handleEffect := fun op k =>
       match op with
@@ -33,10 +36,10 @@ def run (s: S) (p : Program (State S :: es) α) : Program es (S × α) :=
   }
   interpret handler p s
 
-def exec (s : S) (p : Program (State S :: es) α) : Program es S :=
+def exec {S α : Type} (s : S) (p : Program (State S :: es) α) : Program es S :=
   run s p |>.map (fun x => x.fst)
 
-def eval (s : S) (p : Program (State S :: es) α) : Program es α :=
+def eval {S α : Type} (s : S) (p : Program (State S :: es) α) : Program es α :=
   run s p |>.map (fun x => x.snd)
 
 end State

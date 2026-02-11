@@ -4,6 +4,8 @@ namespace ReaderExample
 
 open Reader
 
+variable {es : List Effect}
+
 def addEnv [Member (Reader Nat) es] : Program es Nat := do
   let r ← ask
   let r' ← localEnv (fun _ => r + 30) ask

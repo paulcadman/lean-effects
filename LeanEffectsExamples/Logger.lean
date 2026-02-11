@@ -2,6 +2,8 @@ import LeanEffects
 
 namespace LoggerExample
 
+variable {es : List Effect}
+
 open Logger
 open State
 

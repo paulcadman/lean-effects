@@ -2,6 +2,8 @@ import LeanEffects
 
 namespace StateExample
 
+variable {es : List Effect}
+
 open State
 open Reader
 open Program
