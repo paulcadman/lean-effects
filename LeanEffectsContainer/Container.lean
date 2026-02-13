@@ -6,9 +6,9 @@ structure Container : Type (max u v + 1)  where
 
 namespace Container
 
-structure Extension (C : Container.{u, v}) (A : Type w) : Type (max u v w) where
+structure Extension (C : Container.{u, v}) (α : Type w) : Type (max u v w) where
   shape : C.shape
-  point : C.pos shape → A
+  point : C.pos shape → α
 
 scoped notation "⟦" C "⟧" => Extension C
 scoped notation s " ▷ " p => Container.mk s p
@@ -32,42 +32,41 @@ def void : Container where
 
 def sum : List Container → Container := List.foldr coproduct void
 
-inductive Free (ops : List Container) (A : Type) : Type where
-  | pure : A → Free ops A
-  | impure : ⟦sum ops⟧ (Free ops A) → Free ops A
+inductive Free (ops : List Container) (α : Type) : Type where
+  | pure : α → Free ops α
+  | impure : ⟦sum ops⟧ (Free ops α) → Free ops α
 
 export Free (pure impure)
 
-class inductive Member {A : Type u} (x : A) : List A → Type u where
+class inductive Member {α : Type u} (x : α) : List α → Type u where
   | here {xs} : Member x (x :: xs)
   | there {y xs} : Member x xs → Member x (y :: xs)
 
 export Member (here there)
 
-instance (priority := high) {A : Type u} {x : A} {xs} : Member x (x :: xs) := .here
-instance (priority := low) {A : Type u} {y x : A} {xs} [m : Member x xs] : Member x (y :: xs) := .there m
-
+instance (priority := high) {α : Type u} {x : α} {xs} : Member x (x :: xs) := .here
+instance (priority := low) {α : Type u} {y x : α} {xs} [m : Member x xs] : Member x (y :: xs) := .there m
 notation (priority := high) x " ∈ " xs:50 => Member x xs
 
 section
 
 variable
   {C : Container}
-  {A : Type u}
+  {α : Type u}
 
-def inject {ops : List Container} : C ∈ ops → ⟦C⟧ A → ⟦sum ops⟧ A
+def inject {ops : List Container} : C ∈ ops → ⟦C⟧ α → ⟦sum ops⟧ α
   | here, ⟨s, pf⟩ => ⟨.inl s , pf⟩
   | there m, prog =>
       match inject m prog with
       | ⟨s, p⟩ => by
-            -- ⟨.inr s, p⟩ is enough, but for pedagogical reasons we keep the step by step definition
-            refine ⟨.inr s, ?_⟩
-            unfold sum; simp only [List.foldr]
-            unfold coproduct; simp only [Sum.elim]
-            unfold sum coproduct at p
-            exact p
+          -- ⟨.inr s, p⟩ is enough, but for pedagogical reasons we keep the step by step definition
+          refine ⟨.inr s, ?_⟩
+          unfold sum; simp only [List.foldr]
+          unfold coproduct; simp only [Sum.elim]
+          unfold sum coproduct at p
+          exact p
 
-def project {ops : List Container} : C ∈ ops → ⟦sum ops⟧ A → Option (⟦C⟧ A)
+def project {ops : List Container} : C ∈ ops → ⟦sum ops⟧ α → Option (⟦C⟧ α)
  | here, ⟨.inl s, pf⟩ => some ⟨s, pf⟩
  | here, ⟨.inr _, _⟩ => none
  | there _, ⟨.inl _, _⟩ => none
@@ -79,19 +78,19 @@ section
 
 variable
   {C : Container}
-  {A : Type}
+  {α : Type}
   {ops : List Container}
   [p : C ∈ ops]
 
-def inj : ⟦C⟧ (Free ops A) → Free ops A := impure ∘ inject p
+def inj : ⟦C⟧ (Free ops α) → Free ops α := impure ∘ inject p
 
-def prj : Free ops A → Option (⟦C⟧ (Free ops A))
+def prj : Free ops α → Option (⟦C⟧ (Free ops α))
   | pure _ => none
   | impure x => project p x
 
 def op (s : C.shape) : Free ops (C.pos s) := inj ⟨s, pure⟩
 
-def upcast : Free ops A → Free (C :: ops) A
+def upcast : Free ops α → Free (C :: ops) α
   | pure x => pure x
   | impure ⟨s, k⟩ => impure ⟨.inr s, fun x => upcast (k x)⟩
 
