@@ -6,15 +6,16 @@ structure Container : Type (max u v + 1)  where
 
 namespace Container
 
-abbrev extension (C : Container.{u, v}) (A : Type w) : Type (max u v w) :=
-  Σ x : C.shape, C.pos x → A
+structure Extension (C : Container.{u, v}) (A : Type w) : Type (max u v w) where
+  shape : C.shape
+  point : C.pos shape → A
 
-scoped notation "⟦" C "⟧" => extension C
+scoped notation "⟦" C "⟧" => Extension C
 scoped notation s " ▷ " p => Container.mk s p
 
 instance (C : Container.{u, v}) : Functor ⟦ C ⟧ where
   map {α β : Type u} (f : α → β) (ca : ⟦C⟧ α) : ⟦C⟧ β :=
-    ⟨ca.fst, f ∘ ca.snd⟩
+    ⟨ca.shape, f ∘ ca.point⟩
 
 instance (C : Container) : LawfulFunctor ⟦ C ⟧ where
   map_const := by simp only [Functor.mapConst, Functor.map, implies_true]
@@ -31,9 +32,11 @@ def void : Container where
 
 def sum : List Container → Container := List.foldr coproduct void
 
-inductive Free (C : Container.{u, v}) (A : Type w) : Type (max u v w) where
-  | pure : A → Free C A
-  | impure : (Σ x : C.shape, C.pos x → Free C A) → Free C A
+inductive Free (ops : List Container) (A : Type) : Type where
+  | pure : A → Free ops A
+  | impure : ⟦sum ops⟧ (Free ops A) → Free ops A
+
+export Free (pure impure)
 
 class inductive Member {A : Type u} (x : A) : List A → Type u where
   | here {xs} : Member x (x :: xs)
@@ -71,5 +74,34 @@ def project {ops : List Container} : C ∈ ops → ⟦sum ops⟧ A → Option (�
  | there p, ⟨.inr s, pf⟩ => project p ⟨s, pf⟩
 
 end
+
+section
+
+variable
+  {C : Container}
+  {A : Type}
+  {ops : List Container}
+  [p : C ∈ ops]
+
+def inj : ⟦C⟧ (Free ops A) → Free ops A := impure ∘ inject p
+
+def prj : Free ops A → Option (⟦C⟧ (Free ops A))
+  | pure _ => none
+  | impure x => project p x
+
+def op (s : C.shape) : Free ops (C.pos s) := inj ⟨s, pure⟩
+
+def upcast : Free ops A → Free (C :: ops) A
+  | pure x => pure x
+  | impure ⟨s, k⟩ => impure ⟨.inr s, fun x => upcast (k x)⟩
+
+end
+
+def Free.map {F : List Container} {α β : Type} (f : α → β) : Free F α → Free F β
+    | pure x => pure (f x)
+    | impure ⟨s, pf⟩ => impure ⟨s, fun x => map f (pf x)⟩
+
+instance {F : List Container} : Functor (Free F) where
+  map := Free.map
 
 end Container
