@@ -32,12 +32,6 @@ def void : Container where
 
 def sum : List Container → Container := List.foldr coproduct void
 
-inductive Free (ops : List Container) (α : Type) : Type where
-  | pure : α → Free ops α
-  | impure : ⟦sum ops⟧ (Free ops α) → Free ops α
-
-export Free (pure impure)
-
 class inductive Member {α : Type u} (x : α) : List α → Type u where
   | here {xs} : Member x (x :: xs)
   | there {y xs} : Member x xs → Member x (y :: xs)
@@ -46,7 +40,7 @@ export Member (here there)
 
 instance (priority := high) {α : Type u} {x : α} {xs} : Member x (x :: xs) := .here
 instance (priority := low) {α : Type u} {y x : α} {xs} [m : Member x xs] : Member x (y :: xs) := .there m
-notation (priority := high) x " ∈ " xs:50 => Member x xs
+scoped notation (priority := high) x " ∈ " xs:50 => Member x xs
 
 section
 
@@ -73,34 +67,5 @@ def project {ops : List Container} : C ∈ ops → ⟦sum ops⟧ α → Option (
  | there p, ⟨.inr s, pf⟩ => project p ⟨s, pf⟩
 
 end
-
-section
-
-variable
-  {C : Container}
-  {α : Type}
-  {ops : List Container}
-  [p : C ∈ ops]
-
-def inj : ⟦C⟧ (Free ops α) → Free ops α := impure ∘ inject p
-
-def prj : Free ops α → Option (⟦C⟧ (Free ops α))
-  | pure _ => none
-  | impure x => project p x
-
-def op (s : C.shape) : Free ops (C.pos s) := inj ⟨s, pure⟩
-
-def upcast : Free ops α → Free (C :: ops) α
-  | pure x => pure x
-  | impure ⟨s, k⟩ => impure ⟨.inr s, fun x => upcast (k x)⟩
-
-end
-
-def Free.map {F : List Container} {α β : Type} (f : α → β) : Free F α → Free F β
-    | pure x => pure (f x)
-    | impure ⟨s, pf⟩ => impure ⟨s, fun x => map f (pf x)⟩
-
-instance {F : List Container} : Functor (Free F) where
-  map := Free.map
 
 end Container
