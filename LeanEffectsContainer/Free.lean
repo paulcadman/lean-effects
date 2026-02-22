@@ -10,6 +10,43 @@ export Free (pure impure)
 
 namespace Free
 
+/--
+To prove a property `motive t` for all `t : Free ops α` you must provide:
+
+* hPure - base case if `t` is a pure value
+* hImpure - If `t` is an impure node with shape `s` and continuation `k` then:
+     - Assume the property holds for every continuation branch `k p`
+     - Prove the property for the impure node impure ⟨s, k⟩
+-/
+@[elab_as_elim] def induction
+  {ops : List Container}
+  {α : Type}
+  {motive : Free ops α → Prop}
+  (hPure : ∀ a, motive (pure a))
+  (hImpure : ∀ e, (∀ p, motive (e.point p)) → motive (impure e))
+  : ∀ t : Free ops α, motive t :=
+  Free.rec
+    (motive_1 := motive)
+    (motive_2 := fun ⟨_, k⟩ => ∀ p, motive (k p))
+    (pure := hPure)
+    (impure := hImpure)
+    (mk := fun _ _ ih => ih)
+
+/--
+To prove two impure nodes are equal, it is enough to prove their continuation
+functions are pointwise equal on all positions.
+-/
+theorem impure_ext
+  {ops : List Container}
+  {α : Type}
+  {s : (Container.sum ops).shape}
+  {k₁ k₂ : (Container.sum ops).pos s → Free ops α}
+  (h : ∀ p, k₁ p = k₂ p)
+  : impure ⟨s, k₁⟩ = impure ⟨s, k₂⟩ := by
+  apply congrArg (fun k => impure ⟨s, k⟩)
+  funext p
+  exact h p
+
 section
 
 variable
