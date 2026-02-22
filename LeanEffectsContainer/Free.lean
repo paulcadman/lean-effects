@@ -69,27 +69,27 @@ def upcast : Free ops α → Free (C :: ops) α
 
 end
 
-def Free.map {F : List Container} {α β : Type} (f : α → β) : Free F α → Free F β
+def map {F : List Container} {α β : Type} (f : α → β) : Free F α → Free F β
   | pure x => pure (f x)
-  | impure ⟨s, pf⟩ => impure ⟨s, fun x => Free.map f (pf x)⟩
+  | impure ⟨s, pf⟩ => impure ⟨s, fun x => map f (pf x)⟩
 
-def Free.bind {F : List Container} {α β : Type} : Free F α → (α → Free F β) → Free F β
+def bind {F : List Container} {α β : Type} : Free F α → (α → Free F β) → Free F β
   | pure x, k => k x
-  | impure ⟨s, pf⟩, k => impure ⟨s, fun x => Free.bind (pf x) k⟩
+  | impure ⟨s, pf⟩, k => impure ⟨s, fun x => bind (pf x) k⟩
 
 instance {F : List Container} : Functor (Free F) where
-  map := Free.map
+  map := map
 
-def Free.seq {F : List Container} {α β : Type} : Free F (α → β) → (Unit → Free F α) → Free F β
+def seq {F : List Container} {α β : Type} : Free F (α → β) → (Unit → Free F α) → Free F β
   | pure f, ma => Functor.map f (ma ())
-  | impure ⟨s, f⟩, ma => impure ⟨s, fun x => Free.seq (f x) ma⟩
+  | impure ⟨s, f⟩, ma => impure ⟨s, fun x => seq (f x) ma⟩
 
 instance {F : List Container} : Applicative (Free F) where
   pure := Free.pure
-  seq := Free.seq
+  seq := seq
 
 instance {F : List Container} : Monad (Free F) where
-  bind := Free.bind
+  bind := bind
 
 instance {F : List Container} {α β : Type} : HAndThen (Free F α) (Free F β) (Free F β) where
   hAndThen (ma : Free F α) (mb : Unit → Free F β) : Free F β := ma >>= (fun _ => mb ())
@@ -143,7 +143,7 @@ def run {α : Type} : Free [] α → α
   | pure x => x
 
 theorem bind_pure {F : List Container} {α : Type} (x : Free F α) :
-    Free.bind x Free.pure = x := by
+    bind x Free.pure = x := by
   refine Free.induction ?_ ?_ x
   · intro
     rfl
