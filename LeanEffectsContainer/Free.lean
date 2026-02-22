@@ -77,12 +77,12 @@ def Free.bind {F : List Container} {α β : Type} : Free F α → (α → Free F
   | pure x, k => k x
   | impure ⟨s, pf⟩, k => impure ⟨s, fun x => Free.bind (pf x) k⟩
 
-def Free.seq {F : List Container} {α β : Type} : Free F (α → β) → (Unit → Free F α) → Free F β
-  | pure f, ma => Free.map f (ma ())
-  | impure ⟨s, f⟩, ma => impure ⟨s, fun x => Free.seq (f x) ma⟩
-
 instance {F : List Container} : Functor (Free F) where
   map := Free.map
+
+def Free.seq {F : List Container} {α β : Type} : Free F (α → β) → (Unit → Free F α) → Free F β
+  | pure f, ma => Functor.map f (ma ())
+  | impure ⟨s, f⟩, ma => impure ⟨s, fun x => Free.seq (f x) ma⟩
 
 instance {F : List Container} : Applicative (Free F) where
   pure := Free.pure
@@ -94,9 +94,60 @@ instance {F : List Container} : Monad (Free F) where
 instance {F : List Container} {α β : Type} : HAndThen (Free F α) (Free F β) (Free F β) where
   hAndThen (ma : Free F α) (mb : Unit → Free F β) : Free F β := ma >>= (fun _ => mb ())
 
--- TODO: Add Lawful instances
+instance {F : List Container} : LawfulFunctor (Free F) where
+  map_const := by
+    intro x y
+    rfl
+
+  id_map x := by
+    refine induction ?_ ?_ x
+    · intro
+      rfl
+    · intro _ ih
+      exact impure_ext ih
+
+  comp_map g h x := by
+    refine induction ?_ ?_ x
+    · intro
+      rfl
+    · intro _ ih
+      exact impure_ext ih
+
+
+instance {F : List Container} : LawfulApplicative (Free F) where
+  seqLeft_eq x y := by rfl
+  seqRight_eq x y := by rfl
+  pure_seq g x := by rfl
+  map_pure g x := by rfl
+  seq_pure g := by
+    intro x
+    refine induction ?_ ?_ g
+    · intro f
+      rfl
+    · intro _ ih
+      exact impure_ext ih
+  seq_assoc x g h := by
+    refine induction ?_ ?_ h
+    · intro f
+      have hmapSeq : f <$> (g <*> x) = ((Function.comp f) <$> g) <*> x := by
+        refine induction ?_ ?_ g
+        · intro gfun
+          exact (LawfulFunctor.comp_map (f:=Free F) (g:=gfun) (h:=f) (x:=x)).symm
+        · intro _ ih
+          exact impure_ext ih
+      apply hmapSeq
+    · intro _ ih
+      exact impure_ext ih
 
 def run {α : Type} : Free [] α → α
   | pure x => x
+
+theorem bind_pure {F : List Container} {α : Type} (x : Free F α) :
+    Free.bind x Free.pure = x := by
+  refine Free.induction ?_ ?_ x
+  · intro
+    rfl
+  · intro _ ih
+    exact impure_ext ih
 
 end Free
