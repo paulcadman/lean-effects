@@ -63,7 +63,7 @@ theorem pure_append_nil_left_id (x : Free ops (List α)) : Free.pure List.append
     _ = id <$> x := rfl
     _ = x := id_map x
 
-theorem run_fail_choice (q : Free (NonDet :: ops) α) :
+theorem run_fail_choice {q : Free (NonDet :: ops) α} :
     run (fail ?? q) = Free.pure List.append <*> run fail <*> run q := by
   calc
     run (fail ?? q) = run q := by
@@ -74,17 +74,29 @@ theorem run_fail_choice (q : Free (NonDet :: ops) α) :
       symm
       exact pure_append_nil_left_id (run q)
 
-theorem choice_ident_left_id (q : Free (NonDet :: ops) α) : run (fail ?? q) = run q := by
+theorem choice_ident_left_id {q : Free (NonDet :: ops) α} : run (fail ?? q) = run q := by
   calc
-    run (fail ?? q) = List.append <$> run fail <*> run q := run_fail_choice q
+    run (fail ?? q) = List.append <$> run fail <*> run q := run_fail_choice
     _ = List.append <$> Free.pure [] <*> run q := rfl
     _ = Free.pure (fun x => List.append [] x) <*> run q := rfl
     _ = (fun x => List.append [] x) <$> run q := rfl
     _ = id <$> run q := by rfl
     _ = run q := id_map (run q)
 
-theorem choice_ident_right_id (q : Free (NonDet :: ops) α) : run (q ?? fail) = run q := by
-  sorry
+theorem run_choice_right_fail {p : Free (NonDet :: ops) α} 
+  : run (p ?? fail) = List.append <$> run p <*> Pure.pure [] := by
+  simp [choice, fail, run, Free.inj, Container.inject, Bind.bind, Free.bind, Free.bind_pure]
+
+theorem choice_ident_right_id {p : Free (NonDet :: ops) α} 
+  : run (p ?? fail) = run p := by
+  calc
+    run (p ?? fail) = List.append <$> run p <*> pure [] := run_choice_right_fail
+    _ = pure (fun x => x []) <*> (List.append <$> run p) := Free.interchange
+    _ = (fun x => x []) <$> List.append <$> run p := by rfl
+    _ = ((fun x => x []) ∘ List.append) <$> run p := by rw [LawfulFunctor.comp_map]
+    _ = (fun x => x ++ []) <$> run p := by rfl
+    _ = id <$> run p := by congr; funext x; exact List.append_nil x
+    _ = run p := id_map (run p)
 
 end
 

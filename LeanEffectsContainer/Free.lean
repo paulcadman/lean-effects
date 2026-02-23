@@ -6,7 +6,7 @@ inductive Free (ops : List Container) (α : Type) : Type where
   | pure : α → Free ops α
   | impure : ⟦Container.sum ops⟧ (Free ops α) → Free ops α
 
-export Free (pure impure)
+export Free (impure)
 
 namespace Free
 
@@ -149,5 +149,24 @@ theorem bind_pure {F : List Container} {α : Type} (x : Free F α) :
     rfl
   · intro _ ih
     exact impure_ext ih
+
+theorem interchange {α β} {ops} {a} {f : Free ops (α → β)} 
+  : f <*> pure a = pure (fun x => x a) <*> f := match f with
+  | pure f' => by rfl
+  | impure ⟨s, k⟩ => by
+    simp [Seq.seq, seq, Functor.map, map]; ext x
+    simpa only [Functor.map, instApplicative] using seq_pure (g := k x) (x := a)
+
+theorem interchange_ind {α β} {ops} {a} {f : Free ops (α → β)} 
+  : f <*> pure a = pure (fun x => x a) <*> f := by
+  refine induction ?_ ?_ f
+  · intro x; rfl
+  · intro e ih
+    exact impure_ext ih
+
+theorem interchange_rec {α β} {ops} {a} {f : Free ops (α → β)} 
+  : f <*> pure a = pure (fun x => x a) <*> f := match f with
+  | pure f' => by rfl
+  | impure ⟨s, k⟩ => by apply impure_ext; intro p; apply interchange_rec
 
 end Free
