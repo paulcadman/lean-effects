@@ -86,7 +86,7 @@ def seq {F : List Container} {α β : Type} : Free F (α → β) → (Unit → F
 
 instance {F : List Container} : Applicative (Free F) where
   pure := Free.pure
-  seq := seq
+  seq := Free.seq
 
 instance {F : List Container} : Monad (Free F) where
   bind := bind
@@ -139,32 +139,50 @@ instance {F : List Container} : LawfulApplicative (Free F) where
     · intro _ ih
       exact impure_ext ih
 
+-- Is @[simp] a good idea? probably not
+@[simp] theorem pure_eq_pure {F : List Container} {α} {x : α} :
+  (Free.pure x : Free F α) = Pure.pure x := rfl
+
+instance {F : List Container} : LawfulMonad (Free F) where
+  pure_bind {α β} (x : α) (f : α → Free F β)
+    : Pure.pure x >>= f = f x := by simp [Bind.bind, bind]
+
+  bind_assoc {α β γ} (x : Free F α) (f : α → Free F β) (g : β → Free F γ)
+    : x >>= f >>= g = x >>= fun x => f x >>= g := by
+    refine induction ?_ ?_ x
+    · simp [Bind.bind, bind]
+    · intro _ ih; apply impure_ext; apply ih
+
+  bind_pure_comp {α β} (f : α → β) (x : Free F α)
+    : x >>= (fun a => Pure.pure (f a)) = f <$> x := by
+    refine induction ?_ ?_ x
+    · simp [Bind.bind, bind]
+    · intro _ ih; apply impure_ext; apply ih
+
+  bind_map {α β} (f : Free F (α → β)) (x : Free F α)
+    : f >>= (fun f' => f' <$> x) = f <*> x := by
+    refine induction ?_ ?_ f
+    · intro a; simp [Bind.bind, bind, pure_seq]
+    · intro _ ih; apply impure_ext; apply ih
+
 def run {α : Type} : Free [] α → α
   | pure x => x
 
-theorem bind_pure {F : List Container} {α : Type} (x : Free F α) :
-    bind x Free.pure = x := by
-  refine Free.induction ?_ ?_ x
-  · intro
-    rfl
-  · intro _ ih
-    exact impure_ext ih
-
-theorem interchange {α β} {ops} {a} {f : Free ops (α → β)} 
+theorem interchange {α β} {ops} {a} {f : Free ops (α → β)}
   : f <*> pure a = pure (fun x => x a) <*> f := match f with
   | pure f' => by rfl
   | impure ⟨s, k⟩ => by
     simp [Seq.seq, seq, Functor.map, map]; ext x
     simpa only [Functor.map, instApplicative] using seq_pure (g := k x) (x := a)
 
-theorem interchange_ind {α β} {ops} {a} {f : Free ops (α → β)} 
+theorem interchange_ind {α β} {ops} {a} {f : Free ops (α → β)}
   : f <*> pure a = pure (fun x => x a) <*> f := by
   refine induction ?_ ?_ f
   · intro x; rfl
   · intro e ih
     exact impure_ext ih
 
-theorem interchange_rec {α β} {ops} {a} {f : Free ops (α → β)} 
+theorem interchange_rec {α β} {ops} {a} {f : Free ops (α → β)}
   : f <*> pure a = pure (fun x => x a) <*> f := match f with
   | pure f' => by rfl
   | impure ⟨s, k⟩ => by apply impure_ext; intro p; apply interchange_rec

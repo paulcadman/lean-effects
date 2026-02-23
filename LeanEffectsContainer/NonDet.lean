@@ -70,8 +70,7 @@ theorem run_fail_choice {q : Free (NonDet :: ops) α} :
     run (fail ?? q) = Free.pure List.append <*> run fail <*> run q := by
   calc
     run (fail ?? q) = run q := by
-      simp [choice, fail, run, Free.inj, Container.inject, Bind.bind]
-      exact Free.bind_pure (run q)
+      simp [choice, fail, run, Free.inj, Container.inject]
     _ = Free.pure List.append <*> run fail <*> run q := by
       rw [run_fail_is_empty]
       symm
@@ -88,7 +87,7 @@ theorem choice_ident_left_id {q : Free (NonDet :: ops) α} : run (fail ?? q) = r
 
 theorem run_choice_right_fail {p : Free (NonDet :: ops) α} 
   : run (p ?? fail) = List.append <$> run p <*> Pure.pure [] := by
-  simp [choice, fail, run, Free.inj, Container.inject, Bind.bind, Free.bind, Free.bind_pure]
+  simp [choice, fail, run, Free.inj, Container.inject]
 
 theorem choice_ident_right_id {p : Free (NonDet :: ops) α} 
   : run (p ?? fail) = run p := by
