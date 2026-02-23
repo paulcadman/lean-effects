@@ -2,15 +2,15 @@ import LeanEffectsContainer.Free
 
 open scoped Container
 
-inductive NonDetOps : Type where
-  | choiceOp : NonDetOps
-  | failOp : NonDetOps
+inductive NonDetOps where
+  | choiceOp
+  | failOp
 
-def NonDet : Container :=
-  let pos := fun
+def NonDet : Container where
+  shape := NonDetOps
+  pos := fun
     | .choiceOp => Bool
     | .failOp => Empty
-  NonDetOps ▷ pos
 
 namespace NonDet
 
@@ -22,7 +22,10 @@ variable
 {α : Type}
 
 def choice (p : Free ops α) (q : Free ops α) : Free ops α := do
-  Free.inj (ops:=ops) (C:=NonDet) ⟨.choiceOp, fun b => match b with | true => p | false => q⟩
+  let choose
+    | true => p
+    | false => q
+  Free.inj (ops:=ops) (C:=NonDet) ⟨.choiceOp, choose⟩
 
 scoped notation p " ?? " q => choice p q
 
