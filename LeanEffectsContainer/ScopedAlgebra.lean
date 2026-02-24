@@ -10,7 +10,9 @@ def ops : List Effect → Container := Container.sum ∘ List.map Effect.ops
 
 def scps : List Effect → Container := Container.sum ∘ List.map Effect.scps
 
--- inductive Prog (effs : List Effect) (α : Type) : Type where
---   | var : α → Prog effs α
---   | op : ⟦ ops effs ⟧ (Prog effs α) → Prog effs α
---   | scps : ⟦ scps effs ⟧ (Prog effs (Prog effs α)) → Prog effs α
+inductive Prog (effs : List Effect) : Type → Type 1 where
+  | var {α : Type} : α → Prog effs α
+  | op {α : Type} (s : (ops effs).shape) :
+    ((ops effs).pos s → Prog effs α) → Prog effs α
+  | scp {α β : Type} (s : (scps effs).shape) :
+    ((scps effs).pos s → Prog effs β) → (β → Prog effs α) → Prog effs α
