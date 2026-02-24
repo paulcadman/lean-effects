@@ -1,4 +1,5 @@
 import LeanEffectsContainer.Container
 import LeanEffectsContainer.IndexedContainer
+import LeanEffectsContainer.ScopedAlgebra
 import LeanEffectsContainer.Free
 import LeanEffectsContainer.NonDet
