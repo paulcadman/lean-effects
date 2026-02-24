@@ -1,3 +1,4 @@
 import LeanEffectsContainer.Container
+import LeanEffectsContainer.IndexedContainer
 import LeanEffectsContainer.Free
 import LeanEffectsContainer.NonDet

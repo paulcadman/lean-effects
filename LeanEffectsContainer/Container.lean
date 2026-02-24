@@ -10,7 +10,7 @@ structure Extension (C : Container.{u, v}) (α : Type w) : Type (max u v w) wher
   shape : C.shape
   point : C.pos shape → α
 
-scoped notation "⟦" C "⟧" => Extension C
+scoped notation "⟦" C "⟧ " => Extension C
 scoped notation s " ▷ " p => Container.mk s p
 
 instance (C : Container.{u, v}) : Functor ⟦ C ⟧ where
@@ -69,3 +69,31 @@ def project {ops : List Container} : C ∈ ops → ⟦sum ops⟧ α → Option (
 end
 
 end Container
+
+section List
+
+open Container
+
+abbrev ListContainer : Container where
+  shape := Nat
+  pos := Fin
+
+def list_3_int : ⟦ ListContainer ⟧ Int where
+  shape := 3
+  point := fun _ => 0
+
+abbrev OptionContainer : Container where
+  shape := Bool
+  pos
+    | true => Unit
+    | false => Empty
+
+def just_int : ⟦ OptionContainer ⟧ Int where
+  shape := true
+  point := fun _ => 3
+
+def nothing_int : ⟦ OptionContainer ⟧ Int where
+  shape := false
+  point := nofun
+
+end List

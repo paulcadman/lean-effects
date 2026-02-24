@@ -151,7 +151,9 @@ instance {F : List Container} : LawfulMonad (Free F) where
     : x >>= f >>= g = x >>= fun x => f x >>= g := by
     refine induction ?_ ?_ x
     · simp [Bind.bind, bind]
-    · intro _ ih; apply impure_ext; apply ih
+    · intro ⟨s, e⟩ ih
+      apply impure_ext
+      apply ih
 
   bind_pure_comp {α β} (f : α → β) (x : Free F α)
     : x >>= (fun a => Pure.pure (f a)) = f <$> x := by
