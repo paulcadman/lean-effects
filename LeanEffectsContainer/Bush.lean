@@ -8,6 +8,18 @@ inductive BushN (α : Type u) : Nat → Type (u + 1) where
   | leaf {n : Nat} : BushN α n
   | cons {n : Nat} : BushN α n → BushN α (n + 1) → BushN α n
 
+
+/--
+`Bush` is the translation of the Agda type:
+
+```
+data Bush (a : Set) : Set where
+  leaf : Bush a
+  cons : a -> Bush (Bush a) -> Bush a
+```
+
+The Lean leaf and cons constructors are given by `Bush.leaf` and `Bush.cons`
+defined below.-/
 abbrev Bush (α : Type u) : Type (u + 1) := BushN α 0
 
 namespace Bush
