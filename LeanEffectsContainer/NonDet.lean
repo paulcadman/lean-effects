@@ -1,4 +1,5 @@
 import LeanEffectsContainer.Free
+import LeanEffectsContainer.Prog
 
 open scoped Container
 
@@ -6,120 +7,96 @@ inductive NonDetOps where
   | choiceOp
   | failOp
 
-def NonDet : Container where
+inductive NonDetScps where
+  | once
+
+def NonDetOpsC : Container where
   shape := NonDetOps
   pos := fun
     | .choiceOp => Bool
     | .failOp => Empty
 
+def NonDetScpsC : Container where
+  shape := NonDetScps
+  pos := fun
+    | .once => PUnit
+
+def NonDet : Effect where
+  ops := NonDetOpsC
+  scps := NonDetScpsC
+
 namespace NonDet
 
 section
 
-variable
-{ops : List Container}
-[NonDet ∈ ops]
-{α : Type}
+universe u
 
-def choice (p : Free ops α) (q : Free ops α) : Free ops α := do
-  let choose
-    | true => p
-    | false => q
-  Free.inj (ops:=ops) (C:=NonDet) ⟨.choiceOp, choose⟩
+variable
+{effs : List Effect}
+[NonDet ∈ effs]
+
+def choiceBool : Prog effs Bool :=
+  opEff (e:=NonDet) ⟨.choiceOp, fun b => Prog.var b⟩
+
+def choice {α : Type} (p : Prog effs α) (q : Prog effs α) : Prog effs α := do
+  let b ← choiceBool
+  if b then p else q
 
 scoped notation p " ?? " q => choice p q
 
-def fail : Free ops α := do
-  Free.inj (ops:=ops) (C:=NonDet) ⟨.failOp, fun e => nomatch e⟩
+def fail {α : Type} : Prog effs α :=
+  opEff (e:=NonDet) ⟨.failOp, fun e => nomatch e⟩
+
+def once {α : Type} (p : Prog effs α) : Prog effs α :=
+  scpEff (e:=NonDet) ⟨.once, fun _ => ProgN.varS p⟩
+
+def run {α : Type u} :
+  Prog (NonDet :: effs) α → Prog effs (List α) :=
+  Prog.foldP
+    (P := fun _ => Prog effs (List α))
+    (var0 := fun x => pure [x])
+    (varS := id)
+    (op := fun ⟨c, k⟩ =>
+      match c with
+      | .inl .choiceOp => do
+        let xs ← k true
+        let ys ← k false
+        pure (xs ++ ys)
+      | .inl .failOp => pure []
+      | .inr s => Prog.op ⟨s, k⟩)
+    (scp := fun ⟨c, k⟩ =>
+      match c with
+      | .inl .once => do
+        let xs ← k PUnit.unit
+        match xs with
+        | [] => pure []
+        | x :: _ => pure [x]
+      | .inr s => Prog.scp ⟨s, fun p => ProgN.varS (k p)⟩)
 
 end
 
-section
-
-variable
-{ops : List Container}
-{α : Type}
-
-def run : Free (NonDet :: ops) α → Free ops (List α)
-  | .pure x => .pure [x]
-  | .impure ⟨s, k⟩ =>
-    match s with
-    | .inl .failOp => .pure []
-    | .inl .choiceOp => do
-      let ls ← k true |> run
-      let rs ← k false |> run
-      .pure (ls ++ rs)
-    | .inr s => .impure ⟨s, fun p => run (k p)⟩
-
-theorem bind_fail {β : Type} {k : α → Free (NonDet :: ops) β} : run (fail >>= k) = run fail := rfl
-
-theorem run_fail_is_empty : run (ops:=ops) (α:=α) fail = .pure [] := by
-  simp only [fail, Free.inj, Container.inject, Function.comp_apply]
-  rfl
-
-theorem pure_append_nil_left_id (x : Free ops (List α)) : Free.pure List.append <*> Free.pure [] <*> x = x := by
-  calc
-    Free.pure List.append <*> Free.pure [] <*> x
-      = List.append <$> Free.pure [] <*> x := rfl
-    _ = Free.pure (List.append []) <*> x := rfl
-    _ = List.append [] <$> x := rfl
-    _ = id <$> x := rfl
-    _ = x := id_map x
-
-theorem run_fail_choice {q : Free (NonDet :: ops) α} :
-    run (fail ?? q) = Free.pure List.append <*> run fail <*> run q := by
-  calc
-    run (fail ?? q) = run q := by
-      simp [choice, fail, run, Free.inj, Container.inject]
-    _ = Free.pure List.append <*> run fail <*> run q := by
-      rw [run_fail_is_empty]
-      symm
-      exact pure_append_nil_left_id (run q)
-
-theorem choice_ident_left_id {q : Free (NonDet :: ops) α} : run (fail ?? q) = run q := by
-  calc
-    run (fail ?? q) = List.append <$> run fail <*> run q := run_fail_choice
-    _ = List.append <$> Free.pure [] <*> run q := rfl
-    _ = Free.pure (fun x => List.append [] x) <*> run q := rfl
-    _ = (fun x => List.append [] x) <$> run q := rfl
-    _ = id <$> run q := by rfl
-    _ = run q := id_map (run q)
-
-theorem run_choice_right_fail {p : Free (NonDet :: ops) α} 
-  : run (p ?? fail) = List.append <$> run p <*> Pure.pure [] := by
-  simp [choice, fail, run, Free.inj, Container.inject]
-
-theorem choice_ident_right_id {p : Free (NonDet :: ops) α} 
-  : run (p ?? fail) = run p := by
-  calc
-    run (p ?? fail) = List.append <$> run p <*> pure [] := run_choice_right_fail
-    _ = pure (fun x => x []) <*> (List.append <$> run p) := Free.interchange
-    _ = (fun x => x []) <$> List.append <$> run p := by rfl
-    _ = ((fun x => x []) ∘ List.append) <$> run p := by rw [LawfulFunctor.comp_map]
-    _ = (fun x => x ++ []) <$> run p := by rfl
-    _ = id <$> run p := by congr; funext x; exact List.append_nil x
-    _ = run p := id_map (run p)
-
-end
+end NonDet
 
 section Examples
 
-def exOne : Free [NonDet] Nat :=
-  choice (.pure 1) fail
+open NonDet
+
+def exOne : Prog [NonDet] Nat :=
+  pure 1 ?? fail
 
 def exOneResults : List Nat :=
-  Free.run (run exOne)
+  Prog.run (run exOne)
 
-#guard exOneResults = [1]
+#guard Prog.run (run exOne) = [1]
 
-def exBoth : Free [NonDet] Nat :=
-  choice (.pure 1) (.pure 2)
+def exBoth : Prog [NonDet] Nat :=
+  pure 1 ?? pure 2
 
-def exBothResults : List Nat :=
-  Free.run (run exBoth)
+#guard Prog.run (run exBoth) = [1, 2]
 
-#guard exBothResults = [1, 2]
+def exOnce : Prog [NonDet] Nat :=
+  once <| pure 1 ?? pure 2
+
+#guard Prog.run (run exOnce) = [1]
 
 end Examples
-
-end NonDet
