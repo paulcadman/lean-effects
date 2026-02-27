@@ -1,6 +1,6 @@
 import LeanEffectsContainer.Container
 import LeanEffectsContainer.IndexedContainer
-import LeanEffectsContainer.ScopedAlgebra
 import LeanEffectsContainer.Bush
 import LeanEffectsContainer.Free
 import LeanEffectsContainer.NonDet
+import LeanEffectsContainer.Prog
