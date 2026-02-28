@@ -1,53 +1,79 @@
-import LeanEffectsContainer.Free
+import LeanEffectsContainer.Container
+import LeanEffectsContainer.Prog
 
 open scoped Container
 
 inductive StateOps (S : Type) where
   | getOp
-  | putOp : S → StateOps S
+  | putOp (s : S)
 
-def State (S : Type) : Container where
+def StateOpsC (S : Type) : Container where
   shape := StateOps S
   pos := fun
    | .getOp => S
    | .putOp _ => Unit
 
+def State (S : Type) : Effect where
+  ops := StateOpsC S
+  scps := Container.void
+
 namespace State
 
 variable
-  {ops : List Container}
+  {effs : List Effect}
   {S α : Type}
 
 section SmartConstructor
 
 variable
-  [State S ∈ ops]
+  [State S ∈ effs]
 
-def get : Free ops S := Free.op (C:=State _) StateOps.getOp
+def get : Prog effs S :=
+  opEff (e:=State S) ⟨.getOp, fun s => Prog.var s⟩
 
-def put (s : S) : Free ops Unit := Free.op (C:=State _) (StateOps.putOp s)
+def put (s : S) : Prog effs Unit :=
+  opEff (e:=State S) ⟨.putOp s, fun _ => Prog.var .unit⟩
 
 end SmartConstructor
 
-def run (s : S) : Free (State S :: ops) α → Free ops (S × α)
-  | .pure x => .pure (s, x)
-  | .impure ⟨sh, k⟩ => match sh with
-    | .inl op => match op with
-      | .getOp => run s (k s)
-      | .putOp s' => run s' (k .unit)
-    | .inr sh => .impure ⟨sh, fun p => run s (k p)⟩
+def run'
+  (p : Prog (State S :: effs) α) :
+  S → Prog effs (S × α) :=
+  Prog.foldP
+    (P := fun _ => S → Prog effs (S × α))
+    (var0 := fun x => fun st => pure (st, x))
+    (varS := id)
+    (op := fun ⟨c, k⟩ =>
+      match c with
+      | .inl .getOp => fun st => k st st
+      | .inl (.putOp s') => fun _ => k () s'
+      | .inr s => fun st =>
+        Prog.op ⟨s, fun p => k p st⟩)
+    (scp := fun ⟨c, k⟩ =>
+      match c with
+      | .inl x => nomatch x
+      | .inr s => fun st => Prog.scp ⟨s, fun p => ProgN.varS (k p st)⟩)
+    p
 
-def eval (s : S) (p : Free (State S :: ops) α) : Free ops α := Prod.snd <$> run s p
+def run
+  (s : S)
+  (p : Prog (State S :: effs) α) :
+  Prog effs (S × α) :=
+  run' p s
+
+def eval (s : S) (p : Prog (State S :: effs) α) : Prog effs α :=
+  Prod.snd <$> run s p
+
+end State
 
 section Examples
 
-def tick {ops} [State Nat ∈ ops] : Free ops Unit := do
+open State
+
+def tick {effs} [State Nat ∈ effs] : Prog effs Unit := do
   let i ← get
   put (1 + i)
 
-
-#guard Free.run (State.run 0 (do tick; tick)) = (2, Unit.unit)
+#guard Prog.run (State.run 0 (do tick; tick)) = (2, ())
 
 end Examples
-
-end State
