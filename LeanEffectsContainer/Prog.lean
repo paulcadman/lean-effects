@@ -2,17 +2,17 @@ import LeanEffectsContainer.Container
 
 open scoped Container
 
-structure Effect : Type 1 where
-  ops : Container
-  scps : Container
+universe uC vC u v
+
+structure Effect : Type (max (uC + 1) (vC + 1)) where
+  ops : Container.{uC, vC}
+  scps : Container.{uC, vC}
 
 def ops : List Effect → Container := Container.sum ∘ List.map Effect.ops
 
 def scps : List Effect → Container := Container.sum ∘ List.map Effect.scps
 
-universe u v
-
-inductive ProgN (effs : List Effect) (α : Type u) : Nat → Type (u + 1) where
+inductive ProgN (effs : List Effect.{uC, vC}) (α : Type u) : Nat → Type (max uC vC u) where
   | var0 : α → ProgN effs α 0
   | varS {n : Nat} : ProgN effs α n → ProgN effs α (n + 1)
   -- I want to write
@@ -26,7 +26,7 @@ inductive ProgN (effs : List Effect) (α : Type u) : Nat → Type (u + 1) where
   | scp {n : Nat} (s : (scps effs).shape) :
     ((scps effs).pos s → ProgN effs α (n + 2)) → ProgN effs α (n + 1)
 
-abbrev Prog (effs : List Effect) (α : Type u) : Type (u + 1) := ProgN effs α 1
+abbrev Prog (effs : List Effect.{uC, vC}) (α : Type u) : Type (max uC vC u) := ProgN effs α 1
 
 namespace Prog
 
@@ -56,7 +56,7 @@ def foldP
   | ProgN.op c k => op ⟨c, fun p => foldP P var0 varS op scp (k p)⟩
   | ProgN.scp c k => scp ⟨c, fun p => foldP P var0 varS op scp (k p)⟩
 
-def BindP (effs : List Effect) (α : Type u) : Nat → Type (u + 1)
+def BindP (effs : List Effect.{uC, vC}) (α : Type u) : Nat → Type (max uC vC u)
   | 0 => Prog effs α
   | n + 1 => ProgN effs α (n + 1)
 
@@ -67,7 +67,7 @@ def bindVarLift : (n : Nat) → BindP effs α n → BindP effs α (n + 1)
 section Bind
 
 variable
-  {β : Type u}
+  {β : Type v}
 
 def bindN
   {n : Nat}

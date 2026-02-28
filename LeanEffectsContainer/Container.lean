@@ -1,19 +1,19 @@
-universe u v w
+universe uC vC u v
 
-structure Container : Type (max u v + 1)  where
-  shape : Type u
-  pos : shape → Type v
+structure Container : Type (max uC vC + 1)  where
+  shape : Type uC
+  pos : shape → Type vC
 
 namespace Container
 
-structure Extension (C : Container.{u, v}) (α : Type w) : Type (max u v w) where
+structure Extension (C : Container.{uC, vC}) (α : Type u) : Type (max uC vC u) where
   shape : C.shape
   point : C.pos shape → α
 
 scoped notation "⟦" C "⟧ " => Extension C
 scoped notation s " ▷ " p => Container.mk s p
 
-instance (C : Container.{u, v}) : Functor ⟦ C ⟧ where
+instance (C : Container.{uC, vC}) : Functor ⟦ C ⟧ where
   map {α β : Type u} (f : α → β) (ca : ⟦C⟧ α) : ⟦C⟧ β :=
     ⟨ca.shape, f ∘ ca.point⟩
 
@@ -26,11 +26,11 @@ instance (C : Container) : LawfulFunctor ⟦ C ⟧ where
 
 def coproduct (C C' : Container) := (C.shape ⊕ C'.shape) ▷ Sum.elim C.pos C'.pos
 
-def void : Container where
-  shape := Empty
+def void : Container.{uC, vC} where
+  shape := ULift.{uC, 0} Empty
   pos := nofun
 
-def sum : List Container → Container := List.foldr coproduct void
+def sum : List Container.{uC, vC} → Container.{uC, vC} := List.foldr coproduct void
 
 class inductive Member {α : Type u} (x : α) : List α → Type u where
   | here {xs} : Member x (x :: xs)
@@ -45,10 +45,10 @@ scoped notation (priority := high) x " ∈ " xs:50 => Member x xs
 section
 
 variable
-  {C : Container}
-  {α : Type u}
+  {C : Container.{uC, vC}}
+  {α : Type v}
 
-def inject {ops : List Container} : C ∈ ops → ⟦C⟧ α → ⟦sum ops⟧ α
+def inject {ops : List Container.{uC, vC}} : C ∈ ops → ⟦C⟧ α → ⟦sum ops⟧ α
   | here, ⟨s, pf⟩ => ⟨.inl s , pf⟩
   | there m, prog =>
       match inject m prog with
@@ -60,7 +60,7 @@ def inject {ops : List Container} : C ∈ ops → ⟦C⟧ α → ⟦sum ops⟧ �
           unfold sum coproduct at p
           exact p
 
-def project {ops : List Container} : C ∈ ops → ⟦sum ops⟧ α → Option (⟦C⟧ α)
+def project {ops : List Container.{uC, vC}} : C ∈ ops → ⟦sum ops⟧ α → Option (⟦C⟧ α)
  | here, ⟨.inl s, pf⟩ => some ⟨s, pf⟩
  | here, ⟨.inr _, _⟩ => none
  | there _, ⟨.inl _, _⟩ => none
