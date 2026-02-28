@@ -49,7 +49,7 @@ def fail {α : Type} : Prog effs α :=
 def once {α : Type} (p : Prog effs α) : Prog effs α :=
   scpEff (e:=NonDet) ⟨.once, fun _ => ProgN.varS p⟩
 
-def run {α : Type u} :
+def runList {α : Type u} :
   Prog (NonDet :: effs) α → Prog effs (List α) :=
   Prog.foldP
     (P := fun _ => Prog effs (List α))
@@ -72,6 +72,25 @@ def run {α : Type u} :
         | x :: _ => pure [x]
       | .inr s => Prog.scp ⟨s, fun p => ProgN.varS (k p)⟩)
 
+def runFirst {effs : List Effect} {α : Type u} :
+    Prog (NonDet :: effs) α → Prog effs (Option α) :=
+  Prog.foldP
+    (P := fun _ => Prog effs (Option α))
+    (var0 := fun x => pure (some x))
+    (varS := fun {_} x => x)
+    (op := fun ⟨c, k⟩ =>
+      match c with
+      | .inl .choiceOp => do
+          let l <- k true
+          match l with
+          | some x => pure (some x)
+          | none => k false
+      | .inl .failOp => pure none
+      | .inr s => Prog.op ⟨s, k⟩)
+    (fun ⟨c, k⟩ =>
+      match c with
+      | .inl .once => k PUnit.unit
+      | .inr s => Prog.scp ⟨s, (fun p => ProgN.varS (k p))⟩)
 end
 
 end NonDet
@@ -83,19 +102,19 @@ open NonDet
 def exOne : Prog [NonDet] Nat :=
   pure 1 ?? fail
 
-def exOneResults : List Nat :=
-  Prog.run (run exOne)
-
-#guard Prog.run (run exOne) = [1]
+#guard Prog.run (runList exOne) = [1]
+#guard Prog.run (runFirst exOne) = .some 1
 
 def exBoth : Prog [NonDet] Nat :=
   pure 1 ?? pure 2
 
-#guard Prog.run (run exBoth) = [1, 2]
+#guard Prog.run (runList exBoth) = [1, 2]
+#guard Prog.run (runFirst exBoth) = .some 1
 
 def exOnce : Prog [NonDet] Nat :=
   once <| pure 1 ?? pure 2
 
-#guard Prog.run (run exOnce) = [1]
+#guard Prog.run (runList exOnce) = [1]
+#guard Prog.run (runFirst exOnce) = .some 1
 
 end Examples
