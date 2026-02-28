@@ -1,4 +1,3 @@
-import LeanEffectsContainer.Free
 import LeanEffectsContainer.Prog
 
 open scoped Container

@@ -1,7 +1,5 @@
-import LeanEffectsContainer.Container
-import LeanEffectsContainer.IndexedContainer
 import LeanEffectsContainer.Bush
-import LeanEffectsContainer.Free
+import LeanEffectsContainer.Container
 import LeanEffectsContainer.NonDet
 import LeanEffectsContainer.Prog
 import LeanEffectsContainer.State
