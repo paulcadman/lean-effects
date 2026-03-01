@@ -25,16 +25,6 @@ def NonDet : Effect where
   ops := NonDetOpsC
   scps := NonDetScpsC
 
-def lower2
-    {effs : List Effect} {α : Type} {n : Nat} :
-    ProgN effs α (n + 2) → ProgN effs α (n + 1)
-  | .varS x => x
-  | .op c k => .op c (fun p => lower2 (k p))
-  | .scp c k => .scp c (fun p => lower2 (n := n + 1) (k p))
-termination_by x => sizeOf x
-decreasing_by
-  all_goals sorry
-
 namespace NonDet
 
 variable
@@ -61,25 +51,33 @@ def fail : Prog effs α :=
 def once (p : Prog effs α) : Prog effs α :=
   scpEff (e:=NonDet) ⟨NonDetScps.once, fun _ => ProgN.varS p⟩
 
-partial def msplit : Prog effs α → Prog effs (Option (α × Prog effs α))
-  | ProgN.varS (ProgN.var0 x) => pure (some (x, fail))
-  | ProgN.op c k =>
+def reflectM (p : Prog effs (Option (α × Prog effs α))) : Prog effs α := do
+  match (← p) with
+  | none => fail
+  | some (x, rest) => pure x ?? rest
+
+def msplit : Prog effs α → Prog effs (Option (α × Prog effs α)) :=
+  Prog.foldP
+    (P := fun _ => Prog effs (Option (α × Prog effs α)))
+    (var0 := fun x => pure (some (x, fail)))
+    (varS := id)
+    (op := fun ⟨c, k⟩ =>
       match Container.project (opsMem m) ⟨c, k⟩ with
       | some ⟨.choiceOp, k'⟩ => do
-          let l ← msplit (k' true)
+          let l ← k' true
           match l with
-          | some (x, rest) => pure (some (x, rest ?? k' false))
-          | none => msplit (k' false)
+          | some (x, rest) => pure (some (x, rest ?? reflectM (k' false)))
+          | none => k' false
       | some ⟨.failOp, _⟩ => pure none
-      | none => Prog.op ⟨c, fun p => msplit (k p)⟩
-  | ProgN.scp c k =>
+      | none => Prog.op ⟨c, k⟩)
+    (scp := fun ⟨c, k⟩ =>
       match Container.project (scpsMem m) ⟨c, k⟩ with
       | some ⟨.once, k'⟩ => do
-          let r ← msplit (lower2 (k' PUnit.unit))
+          let r ← k' PUnit.unit
           match r with
           | some (x, _) => pure (some (x, fail))
           | none => pure none
-      | none => Prog.scp ⟨c, fun p => ProgN.varS (msplit (lower2 (k p)))⟩
+      | none => Prog.scp ⟨c, fun p => ProgN.varS (k p)⟩)
 
 end SmartConstructor
 
