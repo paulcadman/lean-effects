@@ -3,11 +3,13 @@ import LeanEffectsContainer.Prog
 
 open scoped Container
 
-inductive StateOps (S : Type) where
+universe u
+
+inductive StateOps (S : Type) : Type 1 where
   | getOp
   | putOp (s : S)
 
-def StateOpsC (S : Type) : Container where
+def StateOpsC (S : Type) : Container.{1, 0} where
   shape := StateOps S
   pos := fun
    | .getOp => S
@@ -21,7 +23,8 @@ namespace State
 
 variable
   {effs : List Effect}
-  {S α : Type}
+  {S : Type}
+  {α : Type u}
 
 section SmartConstructor
 
@@ -29,10 +32,10 @@ variable
   [State S ∈ effs]
 
 def get : Prog effs S :=
-  opEff (e:=State S) ⟨.getOp, fun s => Prog.var s⟩
+  opEff (e:=State S) ⟨StateOps.getOp, fun s => Prog.var s⟩
 
 def put (s : S) : Prog effs Unit :=
-  opEff (e:=State S) ⟨.putOp s, fun _ => Prog.var .unit⟩
+  opEff (e:=State S) ⟨StateOps.putOp s, fun _ => Prog.var .unit⟩
 
 end SmartConstructor
 
@@ -45,8 +48,8 @@ def run'
     (varS := id)
     (op := fun ⟨c, k⟩ =>
       match c with
-      | .inl .getOp => fun st => k st st
-      | .inl (.putOp s') => fun _ => k () s'
+      | .inl StateOps.getOp => fun st => k st st
+      | .inl (StateOps.putOp s') => fun _ => k () s'
       | .inr s => fun st =>
         Prog.op ⟨s, fun p => k p st⟩)
     (scp := fun ⟨c, k⟩ =>

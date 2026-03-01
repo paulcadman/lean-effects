@@ -3,23 +3,25 @@ import LeanEffectsContainer.State
 
 open scoped Container
 
-inductive NonDetOps where
+universe u
+
+inductive NonDetOps : Type 1 where
   | choiceOp
   | failOp
 
-inductive NonDetScps where
+inductive NonDetScps : Type 1 where
   | once
 
-def NonDetOpsC : Container where
+def NonDetOpsC : Container.{1, 0} where
   shape := NonDetOps
   pos := fun
-    | .choiceOp => Bool
-    | .failOp => Empty
+    | NonDetOps.choiceOp => Bool
+    | NonDetOps.failOp => Empty
 
-def NonDetScpsC : Container where
+def NonDetScpsC : Container.{1, 0} where
   shape := NonDetScps
   pos := fun
-    | .once => PUnit
+    | NonDetScps.once => Unit
 
 def NonDet : Effect where
   ops := NonDetOpsC
@@ -29,7 +31,6 @@ namespace NonDet
 
 variable
   {effs : List Effect}
-  {α : Type}
 
 section SmartConstructor
 
@@ -39,9 +40,11 @@ variable
 def choiceBool : Prog effs Bool :=
   opEff (e:=NonDet) ⟨NonDetOps.choiceOp, fun b => Prog.var b⟩
 
-def choice (p : Prog effs α) (q : Prog effs α) : Prog effs α := do
-  let b : Bool ← choiceBool
-  if b then p else q
+variable
+  {α : Type u}
+
+def choice (p : Prog effs α) (q : Prog effs α) : Prog effs α :=
+  Prog.bind choiceBool (fun b => if b then p else q)
 
 scoped notation p " ?? " q => choice p q
 
@@ -51,10 +54,10 @@ def fail : Prog effs α :=
 def once (p : Prog effs α) : Prog effs α :=
   scpEff (e:=NonDet) ⟨NonDetScps.once, fun _ => ProgN.varS p⟩
 
-def reflectM (p : Prog effs (Option (α × Prog effs α))) : Prog effs α := do
-  match (← p) with
-  | none => fail
-  | some (x, rest) => pure x ?? rest
+def reflectM (p : Prog effs (Option (α × Prog effs α))) : Prog effs α :=
+  Prog.bind p (fun
+    | none => fail
+    | some (x, rest) => choice (α := α) (pure x) rest)
 
 def msplit : Prog effs α → Prog effs (Option (α × Prog effs α)) :=
   Prog.foldP
@@ -66,7 +69,8 @@ def msplit : Prog effs α → Prog effs (Option (α × Prog effs α)) :=
       | some ⟨.choiceOp, k'⟩ => do
           let l ← k' true
           match l with
-          | some (x, rest) => pure (some (x, rest ?? reflectM (k' false)))
+          | some (x, rest) =>
+              pure (some (x, choice (α := α) rest (reflectM (effs := effs) (k' false))))
           | none => k' false
       | some ⟨.failOp, _⟩ => pure none
       | none => Prog.op ⟨c, k⟩)
@@ -81,7 +85,10 @@ def msplit : Prog effs α → Prog effs (Option (α × Prog effs α)) :=
 
 end SmartConstructor
 
-def runList {α : Type} :
+variable
+  {α : Type u}
+
+def runList :
   Prog (NonDet :: effs) α → Prog effs (List α) :=
   Prog.foldP
     (P := fun _ => Prog effs (List α))
@@ -98,7 +105,7 @@ def runList {α : Type} :
     (scp := fun ⟨c, k⟩ =>
       match c with
       | .inl .once => do
-        let xs ← k PUnit.unit
+        let xs ← k ()
         match xs with
         | [] => pure []
         | x :: _ => pure [x]
@@ -121,7 +128,7 @@ def runFirst :
       | .inr s => Prog.op ⟨s, k⟩)
     (fun ⟨c, k⟩ =>
       match c with
-      | .inl .once => k PUnit.unit
+      | .inl .once => k ()
       | .inr s => Prog.scp ⟨s, (fun p => ProgN.varS (k p))⟩)
 
 end NonDet
@@ -198,13 +205,13 @@ def exStateNonDetSplit : Prog [NonDet, State Nat] (Option (Nat × Prog [NonDet, 
   | (0, some (some (0, rest))) => Prog.run (State.run 0 (NonDet.runList rest)) = (1, [1])
   | _ => false
 
-def exSplitNonHead : Prog [State Nat, NonDet] (Option (Nat × Prog [State Nat, NonDet] Nat)) := do
-  let n ← State.get
-  msplit (NonDet.choice
-    (pure n)
-    (do
-      State.put (n + 1)
-      State.get))
+def exSplitNonHead : Prog [State Nat, NonDet] (Option (Nat × Prog [State Nat, NonDet] Nat)) :=
+  Prog.bind State.get (fun n =>
+    msplit (NonDet.choice
+      (pure n)
+      (do
+        State.put (n + 1)
+        State.get)))
 
 #guard
   match Prog.run (NonDet.runFirst (effs := []) (State.run 0 exSplitNonHead)) with
