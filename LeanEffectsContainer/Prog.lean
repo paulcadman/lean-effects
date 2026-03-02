@@ -10,7 +10,27 @@ structure Effect : Type 2 where
 
 def ops : List Effect → Container.{1, 0} := Container.sum ∘ List.map Effect.ops
 
+@[simp] theorem ops_cons {e} {es} : ops (e :: es) = Container.coproduct (Effect.ops e) (ops es) := by simp [ops]
+
+@[simp] theorem pos_ops_inl {c} {cs} {x}
+  : Container.pos (ops (c :: cs)) (.inl x) = Container.pos c.ops x := by
+  simp [ops]
+
+@[simp] theorem pos_ops_inr {c} {cs} {x}
+  : Container.pos (ops (c :: cs)) (.inr x) = Container.pos (ops cs) x := by
+  simp [ops]
+
 def scps : List Effect → Container.{1, 0} := Container.sum ∘ List.map Effect.scps
+
+@[simp] theorem pos_scps_inl {c} {cs} {x}
+  : Container.pos (scps (c :: cs)) (.inl x) = Container.pos c.scps x := by
+  simp [scps]
+
+@[simp] theorem pos_scps_inr {c} {cs} {x}
+  : Container.pos (scps (c :: cs)) (.inr x) = Container.pos (scps cs) x := by
+  simp [scps]
+
+@[simp] theorem scps_cons {e} {es} : scps (e :: es) = Container.coproduct e.scps (scps es) := by simp [scps]
 
 inductive ProgN (effs : List Effect) (α : Type u) : Nat → Type (max 1 u) where
   | var0 : α → ProgN effs α 0
@@ -34,8 +54,10 @@ variable
   {effs : List Effect}
   {α : Type u}
 
-def var (x : α) : Prog effs α :=
-  .varS (.var0 x)
+def var {n : Nat} (x : α) : ProgN effs α n :=
+  match n with
+  | 0 => .var0 x
+  | _ + 1 => .varS (var x)
 
 def op : ⟦ ops effs ⟧ (Prog effs α) → Prog effs α
   | ⟨s, p⟩ => ProgN.op s p

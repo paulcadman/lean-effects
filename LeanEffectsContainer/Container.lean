@@ -32,6 +32,14 @@ def void : Container.{uC, vC} where
 
 def sum : List Container.{uC, vC} → Container.{uC, vC} := List.foldr coproduct void
 
+@[simp] theorem sum_cons {c} {cs} : sum (c :: cs) = coproduct c (sum cs) := by simp [sum]
+@[simp] theorem pos_sum_cons_inl {c} {cs} {x}
+  : pos (sum (c :: cs)) (.inl x) = pos c x
+  := by simp [sum, coproduct]
+@[simp] theorem pos_sum_cons_inr {c} {cs} {x}
+  : pos (sum (c :: cs)) (.inr x) = pos (sum cs) x
+  := by simp [sum, coproduct]
+
 class inductive Member {α : Type u} (x : α) : List α → Type u where
   | here {xs} : Member x (x :: xs)
   | there {y xs} : Member x xs → Member x (y :: xs)
