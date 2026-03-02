@@ -27,9 +27,11 @@ def Reader (S : Type) : Effect where
 
 namespace Reader
 
-def ReaderP (effs : List Effect) (α : Type u) : Nat → Type (max 1 u)
-  | 0 => Prog effs α
-  | n + 1 => ProgN effs α (n + 1)
+-- (λ i → (λ X → Γ → Prog effs X) ^ i $ A)
+
+def ReaderP (effs : List Effect) (S : Type) (α : Type u) : Nat → Type (max u 1)
+  | 0 => ULift α
+  | n + 1 => S → ProgN effs (ReaderP effs S α n) (n + 1)
 
 variable
   {effs : List Effect}
@@ -52,26 +54,29 @@ def localR (f : S → S) (p : Prog effs α) : Prog effs α :=
 
 end SmartConstructor
 
+-- {n : Nat} → ReaderP effs S α n → S → ProgN effs (ReaderP effs S α n) (n + 1)
 def run'
-  (p : Prog (Reader S :: effs) α) :
-  S → Prog effs α :=
+  (p : Prog (Reader S :: effs) (ULift α)) :
+  S → Prog effs (ULift α) :=
   Prog.foldP
-    (P := fun _ => S → Prog effs α)
-    (var0 := fun x => fun _st => pure x)
-    (varS := id)
+    (effs:=Reader S :: effs)
+    (n:=1)
+    (P := fun n => ReaderP effs S α n)
+    (var0 := id)
+    (varS := sorry)
     (op := fun ⟨c, k⟩ =>
       match c with
-      | .inl ReaderOps.askOp => fun st => k st st
-      | .inr s => fun st =>
-        Prog.op ⟨s, fun p => k p st⟩)
-    (scp := fun ⟨c, k⟩ =>
-      match c with
-      | .inl x => match x with
-        | .localOp f =>
-          fun s =>
-          do let (r : α) ← k .unit (f s)
-             pure r
-      | .inr s => fun st => Prog.scp ⟨s, fun p => ProgN.varS (k p st)⟩)
+      | .inl .askOp => fun st => k st st
+      | .inr s => fun st => Prog.op ⟨s, fun p => by
+      simp [Reader, ops, Container.sum, Container.coproduct] at k
+      exact k p st⟩)
+      -- fun ⟨c, k⟩ s =>
+      -- sorry
+      -- match c with
+      -- | .inl ReaderOps.askOp => fun st => k st st
+      -- | .inr s => fun st =>
+      --   Prog.op ⟨s, fun p => k p st⟩)
+    (scp := sorry)
     p
 
 def run
