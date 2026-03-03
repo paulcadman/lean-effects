@@ -117,8 +117,7 @@ def bindN'
     (scp := fun ⟨c, k⟩ => ProgN.scp c (ProgN.varS ∘ k))
     ma
 
-def bind : Prog effs α → (α → Prog effs β) → Prog effs β :=
-  bindN
+def bind : Prog effs α → (α → Prog effs β) → Prog effs β := bindN
 
 end Bind
 
@@ -135,6 +134,12 @@ def Prog.run {α : Type u} : Prog [] α → α :=
 def Prog.mapU {α : Type u} {β : Type v} {effs : List Effect}
   (f : α → β) (p : Prog effs α) : Prog effs β :=
   p.bind (Prog.var ∘ f)
+
+def Prog.flatten {n} {effs} {α} : ProgN effs (Prog effs α) n → ProgN effs α (n + 1)
+  | .var0 a => a
+  | .varS a => ProgN.varS (flatten a)
+  | .op a b => ProgN.op a (fun x => flatten (b x))
+  | .scp a b => ProgN.scp a (fun x => flatten (b x))
 
 instance {effs : List Effect} : Monad (Prog effs) where
   pure := Prog.var
