@@ -45,8 +45,13 @@ variable
 def ask : Prog effs S :=
   opEff (e:=Reader S) ⟨ReaderOps.askOp, fun s => Prog.var s⟩
 
+def xxxxxx {n} (p : ProgN effs α n) : ProgN effs α (n + 1) := ProgN.varS p
+
 def localR (f : S → S) (p : Prog effs α) : Prog effs α :=
-  scpEff (e:=Reader S) ⟨ReaderScps.localOp f, fun _ => Prog.flatten (Prog.mapU pure p)⟩
+  scpEff (e:=Reader S) ⟨ReaderScps.localOp f, fun _ =>
+    -- xxxxxx p
+    Prog.flatten (p.bind (Prog.var ∘ pure))
+    ⟩
 
 end SmartConstructor
 
@@ -70,13 +75,14 @@ def runL
       | .inr op' => fun st => ProgN.op op' (fun resp => k resp st))
     (scp := fun ⟨c, k⟩ =>
       match c with
-      | .inl (.localOp f) =>
-        by
-        simp [ReaderP]; intro s
-        simp [ReaderP, Reader] at k
-        rw [pos_scps_inl] at k
-        simp [ReaderScpsC] at k
-        exact Prog.bind (k .unit (f s)) (fun r => r s)
+      | .inl op'' =>
+        match op'' with
+        | .localOp f => by
+          simp [ReaderP]; intro devil
+          simp [ReaderP, Reader] at k
+          rw [pos_scps_inl] at k
+          simp [ReaderScpsC] at k
+          exact Prog.bind (k .unit (f devil)) (fun r => r devil)
       | .inr op' => by
         simp [ReaderP]; intro s
         simp [ReaderP, Reader] at k
@@ -123,6 +129,90 @@ def prog2 {effs} [Reader Nat ∈ effs] [Exception Nat ∈ effs] : Prog effs (Lis
       let l3 ← ask
       pure [l1, l3])
     (fun e => pure [e])
+
+def prog3 : Prog [Reader Nat] Nat := localR (fun x => x + 777) ask
+
+#eval Prog.run (Reader.run 0 prog3)
+
+
+def f : False := by
+  have p : Reader.run 666 prog3 = sorry := sorry
+  conv at p =>
+    unfold run
+    unfold run'
+    lhs
+    arg 2
+    -- unfold to scp node
+    simp only [runL, prog3, localR, scpEff, Container.instMemberCons, scpsMem, Container.inject]
+    simp only [Prog.scp, Prog.foldP]
+    --- we are in the op branch of ProgP
+    lhs
+    simp
+    simp only [pure]
+  conv at p =>
+    lhs
+    arg 2
+    arg 1
+    ext x
+    arg 1
+    arg 6
+    simp only [Prog.bind, Prog.bindN, Prog.var, Prog.foldP, Prog.bindVarLift, Function.comp, Prog.flatten]
+
+
+
+
+-- p : run 666 prog3 = sorry
+-- | fun devil =>
+--     Prog.bind
+--       (Prog.foldP (fun n => ReaderP [] Nat Nat n) ULift.up (fun {n} p s => ProgN.varS (Prog.var p))
+--         (fun {n} x =>
+--           match Container.Extension.shape x, Container.Extension.point x with
+--           | Sum.inl ReaderOps.askOp, k => fun st => k st st
+--           | Sum.inr op', k => fun st => ProgN.op op' fun resp => k resp st)
+--         (fun {n} x =>
+--           match Container.Extension.shape x, Container.Extension.point x with
+--           | Sum.inl op'', k =>
+--             match op'', k with
+--             | ReaderScps.localOp f, k => fun devil => Prog.bind (k () (f devil)) fun r => r devil
+--           | Sum.inr op', k => fun s =>
+--             ProgN.scp op' fun resp => ProgN.varS (Prog.bind (k resp s) fun scoped_prog => scoped_prog s))
+--         (xxxxxx ask) (devil + 777))
+--       fun r => r devil
+
+Goals (1)
+-- p : run 666 prog3 = sorry
+-- | fun devil =>
+--     Prog.bind
+--       (Prog.foldP (fun n => ReaderP [] Nat Nat n) ULift.up (fun {n} p s => ProgN.varS (Prog.var p))
+--         (fun {n} x =>
+--           match Container.Extension.shape x, Container.Extension.point x with
+--           | Sum.inl ReaderOps.askOp, k => fun st => k st st
+--           | Sum.inr op', k => fun st => ProgN.op op' fun resp => k resp st)
+--         (fun {n} x =>
+--           match Container.Extension.shape x, Container.Extension.point x with
+--           | Sum.inl op'', k =>
+--             match op'', k with
+--             | ReaderScps.localOp f, k => fun devil => Prog.bind (k () (f devil)) fun r => r devil
+--           | Sum.inr op', k => fun s =>
+--             ProgN.scp op' fun resp => ProgN.varS (Prog.bind (k resp s) fun scoped_prog => scoped_prog s))
+--         (Prog.flatten (Prog.bind ask (Prog.var ∘ Prog.var))) (devil + 777))
+--       fun r => r devil
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #guard Prog.run (Reader.run 0 prog) = [0, 1, 0]
 #guard match Prog.run (Exception.run (E := Nat) (Reader.run 0 prog2)) with
