@@ -43,7 +43,7 @@ section SmartConstructor
 variable
   [Reader S ∈ effs]
 
-def tmp (p : ProgN effs (Prog effs α) 1) : ProgN effs α 2 := sorry
+-- def tmp (p : ProgN effs (Prog effs α) 1) : ProgN effs α 2 := sorry
 
 def ask : Prog effs S :=
   opEff (e:=Reader S) ⟨ReaderOps.askOp, fun s => Prog.var s⟩
@@ -55,14 +55,14 @@ def ask : Prog effs S :=
 end SmartConstructor
 
 -- {n : Nat} → ReaderP effs S α n → S → ProgN effs (ReaderP effs S α n) (n + 1)
-def run'
-  (p : Prog (Reader S :: effs) (ULift α)) :
+def runL
+  (p : Prog (Reader S :: effs) α) :
   S → Prog effs (ULift α) :=
   Prog.foldP
     (effs:=Reader S :: effs)
     (n:=1)
     (P := fun n => ReaderP effs S α n)
-    (var0 := id)
+    (var0 := ULift.up)
     (varS := by
       intro n p
       simp [ReaderP]; intro s
@@ -90,44 +90,43 @@ def run'
       | .inl x => nomatch x
       | .inr op' => by
         simp [ReaderP]; intro s
-        apply ProgN.scp
-        intro resp
         simp [ReaderP, Reader] at k
         rw [pos_scps_inr] at k
-        sorry
-        -- apply ProgN.varS
-        -- apply k
-        -- exact ((fun a => resp) ∘ k resp) s
-        -- exact s
-        )
-        -- fun st => Prog.scp ⟨s, fun p => ProgN.varS (k p st)⟩)
+        apply ProgN.scp op'
+        intro resp
+        specialize k resp s
+        apply Prog.bindN' k
+        intro scoped_prog
+        specialize scoped_prog s
+        exact ProgN.varS scoped_prog)
     p
+
+def run' (p : Prog (Reader S :: effs) α) (s : S) : Prog effs α :=
+  Prog.mapU ULift.down (runL p s)
 
 def run
   (s : S)
-  (p : Prog (Reader S :: effs) (ULift α)) :
-  Prog effs (ULift α) :=
+  (p : Prog (Reader S :: effs) α) :
+  Prog effs α :=
   run' p s
 
 end Reader
 
 section Examples
 
--- open Reader
+open Reader
 
--- def tick {effs} [Reader Nat ∈ effs] : Prog effs Nat := do
---   ask
+def tick {effs} [Reader Nat ∈ effs] : Prog effs Nat := do
+  ask
 
--- def prog : Prog [Reader Nat] (List Nat) := do
---   let l1 ← ask
---   let l2 ← localR (fun x => x + 1) ask
---   let l3 ← ask
---   pure [l1, l2, l3]
+def prog : Prog [Reader Nat] (List Nat) := do
+  let l1 ← ask
+  -- let l2 ← localR (fun x => x + 1) ask
+  let l3 ← ask
+  pure [l1, l3]
 
--- #guard Prog.run (Reader.run 0 prog) = [0,1,1]
+#guard Prog.run (Reader.run 0 prog) = [0, 0]
 
 -- #guard Prog.run (Reader.run 0 (do ask)) = 0
 
-
-
--- end Examples
+end Examples
