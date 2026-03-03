@@ -1,5 +1,6 @@
 import LeanEffectsContainer.Container
 import LeanEffectsContainer.Prog
+import LeanEffectsContainer.Exception
 
 open scoped Container
 
@@ -125,7 +126,19 @@ def prog : Prog [Reader Nat] (List Nat) := do
   let l3 ← ask
   pure [l1, l3]
 
+def prog2 : Prog [Reader Nat, Exception Nat] (List Nat) := do
+  Exception.catchE
+    (do
+      let l1 ← ask
+      Exception.throwE 99
+      let l3 ← ask
+      pure [l1, l3])
+    (fun e => pure [e])
+
 #guard Prog.run (Reader.run 0 prog) = [0, 0]
+#guard match Prog.run (Exception.run (Reader.run 0 prog2)) with
+  | .ok l => l == [99]
+  | _ => false
 
 -- #guard Prog.run (Reader.run 0 (do ask)) = 0
 
