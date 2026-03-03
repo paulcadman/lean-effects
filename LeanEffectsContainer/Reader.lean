@@ -46,7 +46,7 @@ def ask : Prog effs S :=
   opEff (e:=Reader S) ⟨ReaderOps.askOp, fun s => Prog.var s⟩
 
 def localR (f : S → S) (p : Prog effs α) : Prog effs α :=
-  scpEff (e:=Reader S) ⟨ReaderScps.localOp f, fun .unit => ProgN.varS p⟩
+  scpEff (e:=Reader S) ⟨ReaderScps.localOp f, fun _ => Prog.flatten (Prog.mapU pure p)⟩
 
 end SmartConstructor
 
@@ -76,7 +76,7 @@ def runL
         simp [ReaderP, Reader] at k
         rw [pos_scps_inl] at k
         simp [ReaderScpsC] at k
-        exact Prog.bind (k .unit s) (fun r => (r (f s)))
+        exact Prog.bind (k .unit (f s)) (fun r => r s)
       | .inr op' => by
         simp [ReaderP]; intro s
         simp [ReaderP, Reader] at k
@@ -124,8 +124,7 @@ def prog2 {effs} [Reader Nat ∈ effs] [Exception Nat ∈ effs] : Prog effs (Lis
       pure [l1, l3])
     (fun e => pure [e])
 
-#guard Prog.run (Reader.run 0 prog) = [0, 0, 1]
-#eval Prog.run (Reader.run 0 prog)
+#guard Prog.run (Reader.run 0 prog) = [0, 1, 0]
 #guard match Prog.run (Exception.run (E := Nat) (Reader.run 0 prog2)) with
   | .ok l => l == [99]
   | _ => false
