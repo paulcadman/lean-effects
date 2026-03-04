@@ -39,7 +39,7 @@ def run
   (p : Prog (Parser :: effs) α) : List Char → Prog effs (List Char × α) :=
   Prog.foldP
     (P := fun _ => List Char → Prog effs (List Char × α))
-    (var0 := fun x => fun rest => pure (rest, x))
+    (var0 := fun x => fun rest => if rest.isEmpty then pure (rest, x) else NonDet.fail)
     (varS := id)
     (op := fun ⟨c, k⟩ =>
       match c with
@@ -54,9 +54,9 @@ def run
       | .inr s => fun st => Prog.scp ⟨s, fun p => ProgN.varS (k p st)⟩)
     p
 
-def parse (s : String) (p : Prog (Parser :: effs) α) : Prog effs (String × α) := do
-  let (rest, res) ← run p (s.toList)
-  pure (String.ofList rest, res)
+def parse (s : String) (p : Prog (Parser :: effs) α) : Prog effs α := do
+  let (_, res) ← run p (s.toList)
+  pure res
 
 namespace Examples
 
@@ -68,17 +68,110 @@ def digit
   let natToChar n := Char.ofNat (n + '0'.toNat)
   List.range 10 |>.foldl (fun r d => r ?? char (natToChar d)) NonDet.fail
 
+mutual
+
+partial def many
+  {α : Type}
+  [NonDet ∈ effs]
+  (p : Prog effs α) : Prog effs (List α) :=
+  pure [] ?? many1 p
+
+partial def many1
+  {α : Type}
+  [NonDet ∈ effs]
+  (p : Prog effs α) : Prog effs (List α) := do
+    let a ← p
+    let as ← many p
+    pure (a :: as)
+end
+
 #guard
-  (digit
+  (many digit
   |> parse "123"
   |> NonDet.runFirst
-  |> Prog.run) = some ("23", '1')
+  |> Prog.run) = some ['1', '2', '3']
+
+#guard
+  (many digit
+  |> parse ""
+  |> NonDet.runFirst
+  |> Prog.run) = some []
+
+#guard
+  (many1 digit
+  |> parse "123"
+  |> NonDet.runFirst
+  |> Prog.run) = some ['1', '2', '3']
+
+#guard
+  (many1 digit
+  |> parse ""
+  |> NonDet.runFirst
+  |> Prog.run) = none
 
 #guard
   (digit
   |> parse "a123"
   |> NonDet.runFirst
   |> Prog.run) = none
+
+section Arithmetic
+
+mutual
+
+partial def expr
+  [NonDet ∈ effs]
+  [Parser ∈ effs]
+  : Prog effs Nat := do
+    let i ← term
+    let plus := do
+      let _ ← NonDet.once <| char '+'
+      let j ← expr
+      pure (i + j)
+     plus ?? pure i
+
+partial def term
+  [NonDet ∈ effs]
+  [Parser ∈ effs]
+  : Prog effs Nat :=
+  let times := do
+    let i ← factor
+    let _ ← char '*'
+    let j ← term
+    pure (i * j)
+  times ?? factor
+
+partial def factor
+  [NonDet ∈ effs]
+  [Parser ∈ effs]
+  : Prog effs Nat :=
+  let num := do
+    let ds ← many1 digit
+    pure (String.ofList ds |> String.toNat!)
+  let bracketed := do
+    let _ ← char '('
+    let i ← expr
+    let _ ← char ')'
+    pure i
+  num ?? bracketed
+
+end
+
+def exScoped :=
+  parse "1" expr
+  |> NonDet.runFirst
+  |> Prog.run
+
+#guard exScoped = some 1
+
+def exFactor :=
+  parse "(2+8)*5" expr
+  |> NonDet.runFirst
+  |> Prog.run
+
+#guard exFactor = some 50
+
+end Arithmetic
 
 end Examples
 
