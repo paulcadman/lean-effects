@@ -141,6 +141,26 @@ def Prog.flatten {n} {effs} {α} : ProgN effs (Prog effs α) n → ProgN effs α
   | .op a b => ProgN.op a (fun x => flatten (b x))
   | .scp a b => ProgN.scp a (fun x => flatten (b x))
 
+def Prog.reinterpret
+  {e f : Effect}
+  {effs : List Effect}
+  {α : Type u}
+  (handleOp : ⟦e.ops⟧ (Prog (f :: effs) α) → Prog (f :: effs) α)
+  (handleScp : ⟦e.scps⟧ (Prog (f :: effs) α) → Prog (f :: effs) α) :
+  Prog (e :: effs) α → Prog (f :: effs) α :=
+  Prog.foldP
+    (P := fun _ => Prog (f :: effs) α)
+    (var0 := Prog.var)
+    (varS := id)
+    (op := fun ⟨c, k⟩ =>
+      match c with
+      | .inl s => handleOp ⟨s, k⟩
+      | .inr s => Prog.op ⟨.inr s, k⟩)
+    (scp := fun ⟨c, k⟩ =>
+      match c with
+      | .inl s => handleScp ⟨s, k⟩
+      | .inr s => Prog.scp ⟨.inr s, fun p => ProgN.varS (k p)⟩)
+
 instance {effs : List Effect} : Monad (Prog effs) where
   pure := Prog.var
   bind := Prog.bind
