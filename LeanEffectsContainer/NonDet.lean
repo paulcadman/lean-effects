@@ -1,5 +1,6 @@
 import LeanEffectsContainer.Prog
 import LeanEffectsContainer.State
+import LeanEffectsContainer.Exception
 
 open scoped Container
 
@@ -217,5 +218,21 @@ def exSplitNonHead : Prog [State Nat, NonDet] (Option (Nat × Prog [State Nat, N
   match Prog.run (NonDet.runFirst (effs := []) (State.run 0 exSplitNonHead)) with
   | some (0, some (0, _)) => true
   | _ => false
+
+open Exception
+
+def action1 {eff}
+  [NonDet ∈ eff]
+  [Exception Unit ∈ eff] :
+  Prog eff Bool := catchE (pure true ?? throwE ()) (fun () => pure false)
+
+def action2 {eff}
+  [NonDet ∈ eff]
+  [Exception Unit ∈ eff] :
+  Prog eff Bool := catchE (throwE () ?? pure true) (fun () => pure false)
+
+
+#guard Prog.run (NonDet.runList (Exception.run (E:=Unit) action1)) = [.ok true, .ok false]
+#guard Prog.run (Exception.run (E:=Unit) (NonDet.runList action1)) = .ok [false]
 
 end Examples

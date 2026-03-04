@@ -10,7 +10,27 @@ structure Effect : Type 2 where
 
 def ops : List Effect → Container.{1, 0} := Container.sum ∘ List.map Effect.ops
 
+@[simp] theorem ops_cons {e} {es} : ops (e :: es) = Container.coproduct (Effect.ops e) (ops es) := by simp [ops]
+
+@[simp] theorem pos_ops_inl {c} {cs} {x}
+  : Container.pos (ops (c :: cs)) (.inl x) = Container.pos c.ops x := by
+  simp [ops]
+
+@[simp] theorem pos_ops_inr {c} {cs} {x}
+  : Container.pos (ops (c :: cs)) (.inr x) = Container.pos (ops cs) x := by
+  simp [ops]
+
 def scps : List Effect → Container.{1, 0} := Container.sum ∘ List.map Effect.scps
+
+@[simp] theorem pos_scps_inl {c} {cs} {x}
+  : Container.pos (scps (c :: cs)) (.inl x) = Container.pos c.scps x := by
+  simp [scps]
+
+@[simp] theorem pos_scps_inr {c} {cs} {x}
+  : Container.pos (scps (c :: cs)) (.inr x) = Container.pos (scps cs) x := by
+  simp [scps]
+
+@[simp] theorem scps_cons {e} {es} : scps (e :: es) = Container.coproduct e.scps (scps es) := by simp [scps]
 
 inductive ProgN (effs : List Effect) (α : Type u) : Nat → Type (max 1 u) where
   | var0 : α → ProgN effs α 0
@@ -34,8 +54,10 @@ variable
   {effs : List Effect}
   {α : Type u}
 
-def var (x : α) : Prog effs α :=
-  .varS (.var0 x)
+def var {n : Nat} (x : α) : ProgN effs α n :=
+  match n with
+  | 0 => .var0 x
+  | _ + 1 => .varS (var x)
 
 def op : ⟦ ops effs ⟧ (Prog effs α) → Prog effs α
   | ⟨s, p⟩ => ProgN.op s p
@@ -82,8 +104,20 @@ def bindN
     (scp := fun ⟨c, k⟩ => ProgN.scp c k)
     ma
 
-def bind : Prog effs α → (α → Prog effs β) → Prog effs β :=
-  bindN
+def bindN'
+  {n : Nat}
+  (ma : ProgN effs α (n + 1))
+  (k : α → ProgN effs β (n + 1)) :
+  ProgN effs β (n + 1) :=
+  foldP
+    (P := fun _ => ProgN effs β (n + 1))
+    (var0 := k)
+    (varS := id)
+    (op := fun ⟨c, k⟩ => ProgN.op c k)
+    (scp := fun ⟨c, k⟩ => ProgN.scp c (ProgN.varS ∘ k))
+    ma
+
+def bind : Prog effs α → (α → Prog effs β) → Prog effs β := bindN
 
 end Bind
 
@@ -96,6 +130,16 @@ def Prog.run {α : Type u} : Prog [] α → α :=
     (varS := id)
     (op := fun ⟨c, _⟩ => nomatch c)
     (scp := fun ⟨c, _⟩ => nomatch c)
+
+def Prog.mapU {α : Type u} {β : Type v} {effs : List Effect}
+  (f : α → β) (p : Prog effs α) : Prog effs β :=
+  p.bind (Prog.var ∘ f)
+
+def Prog.flatten {n} {effs} {α} : ProgN effs (Prog effs α) n → ProgN effs α (n + 1)
+  | .var0 a => a
+  | .varS a => ProgN.varS (flatten a)
+  | .op a b => ProgN.op a (fun x => flatten (b x))
+  | .scp a b => ProgN.scp a (fun x => flatten (b x))
 
 instance {effs : List Effect} : Monad (Prog effs) where
   pure := Prog.var
