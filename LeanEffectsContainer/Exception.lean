@@ -1,5 +1,6 @@
 import LeanEffectsContainer.Container
 import LeanEffectsContainer.Prog
+import LeanEffectsContainer.State
 
 open scoped Container
 
@@ -68,6 +69,22 @@ def run (p : Prog (Exception E :: effs) α) : Prog effs (Except E α) :=
       | .inr s => Prog.scp ⟨s, fun p => ProgN.varS (k p)⟩)
     p
 
+-- taken from https://brandonrozek.com/blog/writing-unit-tests-lean-4/
+instance {α β} [DecidableEq α] [DecidableEq β] : DecidableEq (Except α β) := by
+  unfold DecidableEq
+  intro a b
+  cases a <;> cases b <;>
+  -- Get rid of obvious cases where .ok != .err
+  try { apply isFalse ; intro h ; injection h }
+  case error.error c d =>
+    match decEq c d with
+      | isTrue h => apply isTrue (by rw [h])
+      | isFalse _ => apply isFalse (by intro h; injection h; contradiction)
+  case ok.ok c d =>
+    match decEq c d with
+      | isTrue h => apply isTrue (by rw [h])
+      | isFalse _ => apply isFalse (by intro h; injection h; contradiction)
+
 end Exception
 
 section Examples
@@ -83,8 +100,27 @@ def exCatch {effs} [Exception String ∈ effs] : Prog effs Nat :=
 def exCatchNoThrow {effs} [Exception String ∈ effs] : Prog effs Nat :=
   catchE (pure 7) (fun (_ : String) => pure 42)
 
-#guard (match Prog.run (run exThrow) with | .error "boom" => true | _ => false)
-#guard (match Prog.run (run exCatch (E:=String)) with | .ok 42 => true | _ => false)
-#guard (match Prog.run (run exCatchNoThrow (E:=String)) with | .ok 7 => true | _ => false)
+#guard Prog.run (run exThrow) = .error "boom"
+#guard Prog.run (run exCatch (E:=String)) = .ok 42
+#guard Prog.run (run exCatchNoThrow (E:=String)) = .ok 7
+
+def decr
+  {effs}
+  [State Int ∈ effs]
+  [Exception Unit ∈ effs] :
+  Prog effs Unit := do
+    let x ← State.get
+    if x > (0 : Int) then State.put (x - 1) else throwE ()
+
+def tripleDecr
+  {effs}
+  [State Int ∈ effs]
+  [Exception Unit ∈ effs] :
+  Prog effs Unit := do
+    decr
+    catchE (do decr; decr) pure
+
+#guard Prog.run (State.run (2 : Int) (Exception.run (E:=Unit) tripleDecr)) = (0, .ok ())
+#guard Prog.run (Exception.run (E:=Unit) (State.run (2 : Int) tripleDecr)) = .ok (1, ())
 
 end Examples
