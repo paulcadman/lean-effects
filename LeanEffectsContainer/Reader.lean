@@ -12,12 +12,12 @@ inductive ReaderOps (S : Type) : Type 1 where
 inductive ReaderScps (S : Type) : Type 1 where
   | localOp (f : S → S)
 
-def ReaderOpsC (S : Type) : Container.{1, 0} where
+def ReaderOpsC (S : Type) : Container where
   shape := ReaderOps S
   pos := fun
    | .askOp => S
 
-def ReaderScpsC (S : Type) : Container.{1, 0} where
+def ReaderScpsC (S : Type) : Container where
   shape := ReaderScps S
   pos
     | .localOp _ => Unit
@@ -58,48 +58,20 @@ def runL
     (n:=1)
     (P := fun n => ReaderP effs S α n)
     (var0 := ULift.up)
-    (varS := by
-      intro n p
-      simp [ReaderP]; intro s
-      apply ProgN.varS
-      apply Prog.var
-      exact p)
+    (varS := fun p => fun _ => ProgN.varS (Prog.var p))
     (op := fun ⟨c, k⟩ =>
       match c with
       | .inl .askOp => fun st => k st st
       | .inr op' => fun st => ProgN.op op' (fun resp => k resp st))
     (scp := fun ⟨c, k⟩ =>
       match c with
-      | .inl op'' =>
-        match op'' with
-        | .localOp f => by
-          simp [ReaderP]; intro devil
-          simp [ReaderP, Reader] at k
-          rw [pos_scps_inl] at k
-          simp [ReaderScpsC] at k
-          exact Prog.bind (k .unit (f devil)) (fun r => r devil)
-      | .inr op' => by
-        simp [ReaderP]; intro s
-        simp [ReaderP, Reader] at k
-        rw [pos_scps_inr] at k
-        apply ProgN.scp op'
-        intro resp
-        specialize k resp s
-        apply ProgN.varS
-        apply Prog.bind k
-        intro scoped_prog
-        specialize scoped_prog s
-        exact scoped_prog)
+      | .inl (.localOp f) => fun st => k .unit (f st) >>= fun r => r st
+      | .inr op' => fun s =>
+          Prog.scp ⟨op', fun resp => ProgN.varS (k resp s >>= fun scoped_prog => scoped_prog s)⟩)
     p
 
-def run' (p : Prog (Reader S :: effs) α) (s : S) : Prog effs α :=
+def run (s : S) (p : Prog (Reader S :: effs) α) : Prog effs α :=
   Prog.mapU ULift.down (runL p s)
-
-def run
-  (s : S)
-  (p : Prog (Reader S :: effs) α) :
-  Prog effs α :=
-  run' p s
 
 namespace Examples
 
@@ -125,9 +97,7 @@ def prog2 {effs} [Reader Nat ∈ effs] [Exception Nat ∈ effs] : Prog effs (Lis
 
 #guard Prog.run (Reader.run 0 prog) = [0, 1, 0]
 
-#guard match Prog.run (Exception.run (E := Nat) (Reader.run 0 prog2)) with
-  | .ok l => l == [99]
-  | _ => false
+#guard Prog.run (Exception.run (E := Nat) (Reader.run 0 prog2)) = .ok [99]
 
 end Examples
 
