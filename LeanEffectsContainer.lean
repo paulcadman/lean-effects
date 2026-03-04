@@ -4,4 +4,5 @@ import LeanEffectsContainer.IOEff
 import LeanEffectsContainer.Exception
 import LeanEffectsContainer.NonDet
 import LeanEffectsContainer.Prog
+import LeanEffectsContainer.Reader
 import LeanEffectsContainer.State

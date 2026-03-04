@@ -101,9 +101,7 @@ def run
   Prog effs α :=
   run' p s
 
-end Reader
-
-section Examples
+namespace Examples
 
 open Reader
 
@@ -132,3 +130,5 @@ def prog2 {effs} [Reader Nat ∈ effs] [Exception Nat ∈ effs] : Prog effs (Lis
   | _ => false
 
 end Examples
+
+end Reader
