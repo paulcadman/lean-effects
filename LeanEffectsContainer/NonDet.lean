@@ -1,6 +1,8 @@
+import LeanEffectsContainer.Exception
+import LeanEffectsContainer.IOEff
+import LeanEffectsContainer.NonDet.PStream
 import LeanEffectsContainer.Prog
 import LeanEffectsContainer.State
-import LeanEffectsContainer.Exception
 
 open scoped Container
 
@@ -132,6 +134,29 @@ def runFirst :
       | .inl .once => k ()
       | .inr s => Prog.scp ⟨s, (fun p => ProgN.varS (k p))⟩)
 
+def runPStream :
+    Prog (NonDet :: effs) α → Prog effs (PStream effs α) :=
+  Prog.foldP
+    (P := fun _ => Prog effs (PStream effs α))
+    (var0 := fun x => pure (PStream.singleton x))
+    (varS := id)
+    (op := fun ⟨c, k⟩ =>
+      match c with
+      | .inl .choiceOp => do
+          let l ← k true
+          pure (PStream.append l (fun _ => PStream.squash (fun _ => k false)))
+      | .inl .failOp => pure PStream.nil
+      | .inr s => Prog.op ⟨s, k⟩)
+    (fun ⟨c, k⟩ =>
+      match c with
+      | .inl .once => do
+          let xs ← k ()
+          let h ← PStream.uncons xs
+          match h with
+          | none => pure PStream.nil
+          | some (x, _) => pure (PStream.singleton x)
+      | .inr s => Prog.scp ⟨s, (fun p => ProgN.varS (k p))⟩)
+
 end NonDet
 
 section Examples
@@ -155,6 +180,41 @@ def exOnce : Prog [NonDet] Nat :=
 
 #guard Prog.run (runList exOnce) = [1]
 #guard Prog.run (runFirst exOnce) = .some 1
+
+def exBothIO : Prog [NonDet, IOEff] Nat :=
+  (do
+    IOEff.embed (IO.println "head")
+    pure 1)
+  ??
+  (do
+    IOEff.embed (IO.println "tail")
+    pure 2)
+
+def gBothIO : Prog [IOEff] (List Nat) :=
+  Prog.bind (runPStream exBothIO) PStream.force
+
+/--
+info: head
+tail
+---
+info: [1, 2]
+-/
+#guard_msgs in
+#eval IOEff.run gBothIO
+
+def exOnceIO : Prog [NonDet, IOEff] Nat :=
+  once exBothIO
+
+def gOnceIO : Prog [IOEff] (List Nat) :=
+  Prog.bind (runPStream exOnceIO) PStream.force
+
+/--
+info: head
+---
+info: [1]
+-/
+#guard_msgs in
+#eval IOEff.run gOnceIO
 
 def exSplitNone : Prog [NonDet] (Option (Nat × Prog [NonDet] Nat)) :=
   msplit fail
