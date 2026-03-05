@@ -1,7 +1,6 @@
 name = "lean-effects"
 version = "0.1.0"
-defaultTargets = ["LeanEffects", "LeanEffectsContainer"]
-testDriver = "LeanEffectsExamples"
+defaultTargets = ["Effects"]
 
 [[require]]
 name = "batteries"
@@ -13,11 +12,4 @@ autoImplicit = false
 pp.fieldNotation = false
 
 [[lean_lib]]
-name = "LeanEffects"
-
-[[lean_lib]]
-name = "LeanEffectsExamples"
-globs = ["LeanEffectsExamples.+"]
-
-[[lean_lib]]
-name = "LeanEffectsContainer"
+name = "Effects"

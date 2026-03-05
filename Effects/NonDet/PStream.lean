@@ -1,5 +1,5 @@
 import Batteries.Data.MLList.Basic
-import LeanEffectsContainer.Prog
+import Effects.Prog
 
 universe u
 

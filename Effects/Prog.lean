@@ -1,4 +1,4 @@
-import LeanEffectsContainer.Container
+import Effects.Container
 
 open scoped Container
 

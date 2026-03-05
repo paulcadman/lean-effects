@@ -1,8 +1,8 @@
-import LeanEffectsContainer.Exception
-import LeanEffectsContainer.IOEff
-import LeanEffectsContainer.NonDet.PStream
-import LeanEffectsContainer.Prog
-import LeanEffectsContainer.State
+import Effects.Exception
+import Effects.IOEff
+import Effects.NonDet.PStream
+import Effects.Prog
+import Effects.State
 
 open scoped Container
 

@@ -1,6 +1,6 @@
-import LeanEffectsContainer.Container
-import LeanEffectsContainer.Prog
-import LeanEffectsContainer.State
+import Effects.Container
+import Effects.Prog
+import Effects.State
 
 open scoped Container
 

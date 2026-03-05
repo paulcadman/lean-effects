@@ -1,5 +1,5 @@
-import LeanEffectsContainer.Container
-import LeanEffectsContainer.Prog
+import Effects.Container
+import Effects.Prog
 
 open scoped Container
 
