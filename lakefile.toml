@@ -1,6 +1,6 @@
 name = "lean-effects"
 version = "0.1.0"
-defaultTargets = ["Effects"]
+defaultTargets = ["Effects", "Tutorial"]
 
 [[require]]
 name = "batteries"
@@ -13,3 +13,6 @@ pp.fieldNotation = false
 
 [[lean_lib]]
 name = "Effects"
+
+[[lean_lib]]
+name = "Tutorial"
