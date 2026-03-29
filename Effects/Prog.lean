@@ -194,3 +194,10 @@ def scpEff
   [m : e ∈ effs]
   (ext : ⟦e.scps⟧ (ProgN effs α 2)) : Prog effs α :=
     Container.inject (scpsMem m) ext |> Prog.scp
+
+def Prog.void
+  {effs : List Effect}
+  {α : Type u}
+  (p : Prog effs α) : Prog effs PUnit := do
+  let _ ← p
+  pure .unit
