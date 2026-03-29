@@ -1,6 +1,5 @@
 import Effects.Container
 import Effects.Prog
-import Effects.State
 
 open scoped Container
 
@@ -51,25 +50,22 @@ end IOEff
 
 section Examples
 
-def logIO {effs : List Effect} [IOEff ∈ effs] (msg : String) : Prog effs Unit :=
+def logIO
+  {effs : List Effect}
+  [IOEff ∈ effs]
+  (msg : String)
+  : Prog effs Unit :=
   IOEff.embed (IO.println msg)
 
-def exStateReaderIO : Prog [State Nat, IOEff] Unit := do
-  let (n : Nat) ← State.get
-  logIO s!"n={n}"
-  State.put (n + 1)
-  logIO "updated state"
-
-def runStateReaderIO : IO Unit :=
-  exStateReaderIO
-    |> State.eval 1
-    |> IOEff.run
+def exLog : Prog [IOEff] Unit := do
+  logIO "a"
+  logIO "b"
 
 /--
-info: n=1
-updated state
+info: a
+b
 -/
 #guard_msgs in
-#eval runStateReaderIO
+#eval exLog |> IOEff.run
 
 end Examples
