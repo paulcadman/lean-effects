@@ -165,6 +165,7 @@ instance {effs : List Effect} : Monad (Prog effs) where
   pure := Prog.var
   bind := Prog.bind
 
+@[reducible]
 def opsMem
   {effs : List Effect}
   {e : Effect} :
@@ -172,6 +173,7 @@ def opsMem
   | .here => .here
   | .there m => .there (opsMem m)
 
+@[reducible]
 def scpsMem
   {effs : List Effect}
   {e : Effect} :
